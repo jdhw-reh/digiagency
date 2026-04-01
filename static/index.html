@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digi Agency</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+  <!-- ===== SIDEBAR ===== -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">✦</span>
+      <span class="brand-name">Digi Agency</span>
+    </div>
+
+    <div class="nav-group">
+      <a class="nav-link" href="#/home" data-view="home">
+        Overview
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <button id="btn-settings" class="nav-settings-btn" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+        <span class="settings-alert-dot"></span>
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <span class="nav-group-label">Teams</span>
+      <a class="nav-link" href="#/content" data-view="content">
+        <span class="nav-dot" style="--dot: #6366f1"></span>
+        Content Team
+      </a>
+      <a class="nav-link" href="#/social" data-view="social">
+        <span class="nav-dot" style="--dot: #14b8a6"></span>
+        Social Team
+      </a>
+      <a class="nav-link" href="#/seo-audit" data-view="seo-audit">
+        <span class="nav-dot" style="--dot: #8b5cf6"></span>
+        SEO Audit
+      </a>
+      <a class="nav-link" href="#/assistant" data-view="assistant">
+        <span class="nav-dot" style="--dot: #f59e0b"></span>
+        Assistant
+      </a>
+      <a class="nav-link" href="#/video" data-view="video">
+        <span class="nav-dot" style="--dot: #ef4444"></span>
+        Video Director
+      </a>
+      <a class="nav-link" href="#/on-page-opt" data-view="on-page-opt">
+        <span class="nav-dot" style="--dot: #10b981"></span>
+        On-Page Optimiser
+      </a>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT AREA ===== -->
+  <div id="app-main">
+
+    <!-- ===== HOME VIEW ===== -->
+    <div id="view-home" class="view">
+      <div class="director-bar">
+        <span id="director-text">Good to see you. Where are we heading today?</span>
+      </div>
+
+      <div class="quick-launches">
+        <button class="launch-btn" data-view="content">Write an article →</button>
+        <button class="launch-btn" data-view="social">Scout trends →</button>
+        <button class="launch-btn" data-view="seo-audit">Audit a site →</button>
+        <button class="launch-btn" data-view="assistant">Ask the assistant →</button>
+        <button class="launch-btn" data-view="video">Direct a video →</button>
+        <button class="launch-btn" data-view="on-page-opt">Optimise a page →</button>
+      </div>
+
+      <div class="home-grid">
+
+        <div class="team-card" data-view="content" style="--card-color: #6366f1">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">✍</div>
+            <h2 class="card-name">Content Team</h2>
+            <p class="card-desc">Research, plan and write SEO thought leadership articles that rank and convert</p>
+            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+        <div class="team-card" data-view="social" style="--card-color: #14b8a6">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">◎</div>
+            <h2 class="card-name">Social Team</h2>
+            <p class="card-desc">Scout trends, build content calendars and write platform-native posts for LinkedIn, X and Instagram</p>
+            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+        <div class="team-card" data-view="seo-audit" style="--card-color: #8b5cf6">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">◉</div>
+            <h2 class="card-name">SEO Audit</h2>
+            <p class="card-desc">Audit any website for SEO gaps, ranking opportunities and quick wins with live search intelligence</p>
+            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+        <div class="team-card" data-view="assistant" style="--card-color: #f59e0b">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">◈</div>
+            <h2 class="card-name">Assistant</h2>
+            <p class="card-desc">Draft emails, summarise documents, build schedules and answer anything you throw at it</p>
+            <div class="card-meta">1 agent · Gemini 2.5 Flash</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+        <div class="team-card" data-view="video" style="--card-color: #ef4444">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">◈</div>
+            <h2 class="card-name">Video Director</h2>
+            <p class="card-desc">Turn a brief or social post into a shot-by-shot Runway Gen-4 breakdown with camera-ready prompts</p>
+            <div class="card-meta">1 agent · Gemini 2.5 Flash</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+        <div class="team-card" data-view="on-page-opt" style="--card-color: #10b981">
+          <div class="card-color-bar"></div>
+          <div class="card-body">
+            <div class="card-icon">⬡</div>
+            <h2 class="card-name">On-Page Optimiser</h2>
+            <p class="card-desc">Review existing copy for SEO issues and get a rewrite, or build keyword-researched page copy from a single prompt</p>
+            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+          </div>
+          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+        </div>
+
+      </div>
+
+      <div class="activity-section">
+        <div class="activity-label">Recent activity</div>
+        <ul id="activity-feed" class="activity-feed">
+          <li class="activity-empty">No activity yet</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ===== CONTENT TEAM VIEW ===== -->
+    <div id="view-content" class="view">
+
+      <!-- View header -->
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #6366f1"></span>
+            <h1>Content Team</h1>
+          </div>
+          <button id="btn-reset" class="btn-ghost" disabled title="Start a new article">
+            + New Article
+          </button>
+        </div>
+        <div class="context-bar">
+          <textarea
+            id="business-context"
+            rows="2"
+            placeholder="Describe your business — e.g. Copywriting agency for professional services firms: law firms, management consultancies, and accountancies. We write website copy, thought leadership articles, and email sequences that help them win more clients."
+          ></textarea>
+          <button id="btn-research" class="btn-primary">
+            Discover Topics <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Pipeline progress -->
+      <div class="pipeline-track">
+        <div class="pipeline-step" id="step-1">
+          <div class="step-node"><span class="step-num">1</span><span class="step-check">✓</span></div>
+          <div class="step-label">Research</div>
+        </div>
+        <div class="step-line" id="line-1-2"></div>
+        <div class="pipeline-step" id="step-2">
+          <div class="step-node"><span class="step-num">2</span><span class="step-check">✓</span></div>
+          <div class="step-label">Plan</div>
+        </div>
+        <div class="step-line" id="line-2-3"></div>
+        <div class="pipeline-step" id="step-3">
+          <div class="step-node"><span class="step-num">3</span><span class="step-check">✓</span></div>
+          <div class="step-label">Write</div>
+        </div>
+        <div class="step-line" id="line-3-4"></div>
+        <div class="pipeline-step" id="step-4">
+          <div class="step-node"><span class="step-num">4</span><span class="step-check">✓</span></div>
+          <div class="step-label">Save</div>
+        </div>
+      </div>
+
+      <!-- Three-column panel grid -->
+      <main class="panel-grid">
+
+        <!-- Researcher -->
+        <section class="panel panel--indigo" id="panel-researcher">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">🔍</span>
+              <div>
+                <h2>Researcher</h2>
+                <p class="panel-subtitle">Finds SEO opportunities via live search</p>
+              </div>
+            </div>
+            <span class="panel-status" id="researcher-status"></span>
+          </div>
+          <div class="stream-output activity-log" id="researcher-output" aria-label="Research activity">
+            <div class="empty-state">Waiting to research topics…</div>
+          </div>
+          <div id="topic-list" class="topic-list" aria-label="Topic options"></div>
+          <div class="panel-footer">
+            <button id="btn-plan" class="btn-primary" disabled>
+              Plan This Topic <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Planner -->
+        <section class="panel panel--indigo" id="panel-planner">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">📋</span>
+              <div>
+                <h2>Planner</h2>
+                <p class="panel-subtitle">Builds the content brief</p>
+              </div>
+            </div>
+            <span class="panel-status" id="planner-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="planner-output" aria-label="Content brief">
+            <div class="empty-state">Waiting for a topic to be selected…</div>
+          </div>
+          <div class="panel-footer">
+            <button id="btn-write" class="btn-primary" disabled>
+              Write Article <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Writer -->
+        <section class="panel panel--indigo" id="panel-writer">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">✍️</span>
+              <div>
+                <h2>Writer</h2>
+                <p class="panel-subtitle">Writes the thought leadership article</p>
+              </div>
+            </div>
+            <span class="panel-status" id="writer-status"></span>
+          </div>
+          <div class="stream-output prose-output article-output" id="writer-output" aria-label="Article content">
+            <div class="empty-state">Waiting for a content brief…</div>
+          </div>
+          <div class="panel-footer writer-footer">
+            <span class="word-count" id="word-count"></span>
+            <button id="btn-save" class="btn-success" disabled>
+              ↑ Save to Notion
+            </button>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- Saved articles -->
+      <footer class="saved-footer">
+        <span class="saved-label">Saved to Notion</span>
+        <ul id="saved-list" class="saved-list">
+          <li class="saved-empty">No articles saved yet</li>
+        </ul>
+      </footer>
+
+    </div>
+
+    <!-- ===== SOCIAL TEAM VIEW ===== -->
+    <div id="view-social" class="view">
+
+      <!-- View header -->
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #14b8a6"></span>
+            <h1>Social Team</h1>
+          </div>
+          <button id="social-btn-reset" class="btn-ghost" disabled>+ New Campaign</button>
+        </div>
+        <div class="context-bar context-bar--social">
+          <div class="social-url-row">
+            <input
+              id="social-profile-url"
+              type="url"
+              placeholder="Paste a social media profile URL — e.g. https://www.instagram.com/natgeo"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span id="social-platform-badge" class="platform-badge" aria-live="polite"></span>
+          </div>
+          <textarea
+            id="social-description"
+            rows="2"
+            placeholder="Optional: add context about this account — e.g. B2B SaaS brand targeting startup founders. Known for contrarian takes on growth marketing."
+          ></textarea>
+          <button id="social-btn-scout" class="btn-primary btn-teal">
+            Scout Account <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Pipeline progress -->
+      <div class="pipeline-track">
+        <div class="pipeline-step" id="social-step-1">
+          <div class="step-node"><span class="step-num">1</span><span class="step-check">✓</span></div>
+          <div class="step-label">Scout</div>
+        </div>
+        <div class="step-line" id="social-line-1-2"></div>
+        <div class="pipeline-step" id="social-step-2">
+          <div class="step-node"><span class="step-num">2</span><span class="step-check">✓</span></div>
+          <div class="step-label">Strategise</div>
+        </div>
+        <div class="step-line" id="social-line-2-3"></div>
+        <div class="pipeline-step" id="social-step-3">
+          <div class="step-node"><span class="step-num">3</span><span class="step-check">✓</span></div>
+          <div class="step-label">Write</div>
+        </div>
+        <div class="step-line" id="social-line-3-4"></div>
+        <div class="pipeline-step" id="social-step-4">
+          <div class="step-node"><span class="step-num">4</span><span class="step-check">✓</span></div>
+          <div class="step-label">Save</div>
+        </div>
+      </div>
+
+      <!-- Three-column panel grid -->
+      <main class="panel-grid">
+
+        <!-- Scout -->
+        <section class="panel panel--teal" id="social-panel-scout">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◎</span>
+              <div>
+                <h2>Scout</h2>
+                <p class="panel-subtitle">Finds trending opportunities via live search</p>
+              </div>
+            </div>
+            <span class="panel-status" id="social-scout-status"></span>
+          </div>
+          <div class="stream-output activity-log" id="social-scout-output" aria-label="Scout activity">
+            <div class="empty-state">Waiting to scout trends…</div>
+          </div>
+          <div id="social-opportunity-list" class="topic-list" aria-label="Opportunity options"></div>
+          <div class="panel-footer">
+            <button id="social-btn-strategise" class="btn-primary btn-teal" disabled>
+              Build Calendar <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Strategist -->
+        <section class="panel panel--teal" id="social-panel-strategist">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◫</span>
+              <div>
+                <h2>Strategist</h2>
+                <p class="panel-subtitle">Builds the 2-week content calendar</p>
+              </div>
+            </div>
+            <span class="panel-status" id="social-strategist-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="social-strategist-output" aria-label="Content calendar">
+            <div class="empty-state">Waiting for an opportunity to be selected…</div>
+          </div>
+          <div class="panel-footer">
+            <button id="social-btn-write" class="btn-primary btn-teal" disabled>
+              Write Posts <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Copywriter -->
+        <section class="panel panel--teal" id="social-panel-copywriter">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">✎</span>
+              <div>
+                <h2>Copywriter</h2>
+                <p class="panel-subtitle">Writes platform-native posts</p>
+              </div>
+            </div>
+            <span class="panel-status" id="social-copywriter-status"></span>
+          </div>
+          <div class="stream-output activity-log" id="social-copywriter-stream" aria-label="Writing stream">
+            <div class="empty-state">Waiting for a content calendar…</div>
+          </div>
+          <div id="social-posts-container" class="posts-container"></div>
+          <div class="panel-footer writer-footer">
+            <span class="post-count" id="social-post-count"></span>
+            <button id="social-btn-save" class="btn-success" disabled>
+              ↑ Save to Notion
+            </button>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- Saved posts footer -->
+      <footer class="saved-footer">
+        <span class="saved-label">Saved to Notion</span>
+        <ul id="social-saved-list" class="saved-list">
+          <li class="saved-empty">No posts saved yet</li>
+        </ul>
+      </footer>
+
+    </div>
+
+    <!-- ===== ASSISTANT VIEW ===== -->
+    <div id="view-assistant" class="view">
+
+      <!-- View header with quick actions -->
+      <header class="view-header chat-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #f59e0b"></span>
+            <h1>Assistant</h1>
+          </div>
+          <button id="asst-btn-clear" class="btn-ghost">New conversation</button>
+        </div>
+        <div class="quick-actions">
+          <button class="quick-pill" data-prompt="Draft an email for me. ">Draft an email</button>
+          <button class="quick-pill" data-prompt="Summarise this for me: ">Summarise this</button>
+          <button class="quick-pill" data-prompt="Analyse this document: ">Analyse this document</button>
+          <button class="quick-pill" data-prompt="Search the web for: ">Search the web for</button>
+          <button class="quick-pill" data-prompt="Review and improve this: ">Review &amp; improve</button>
+        </div>
+      </header>
+
+      <!-- Chat messages area -->
+      <div id="asst-messages" class="chat-messages">
+        <div class="chat-welcome" id="asst-welcome">
+          <div class="chat-welcome-icon">◈</div>
+          <p>What can I help you with today?</p>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="chat-input-bar">
+        <input
+          type="file"
+          id="asst-file-input"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.txt"
+          style="display:none"
+        >
+        <button id="asst-btn-attach" class="btn-attach" title="Attach files (max 3)">📎</button>
+        <div class="chat-input-wrapper">
+          <div id="asst-file-queue" class="file-queue"></div>
+          <textarea
+            id="asst-input"
+            class="chat-input"
+            rows="1"
+            placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+          ></textarea>
+        </div>
+        <button id="asst-btn-send" class="btn-primary btn-amber">
+          Send <span class="btn-arrow">→</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ===== SEO AUDIT VIEW ===== -->
+    <div id="view-seo-audit" class="view">
+
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #8b5cf6"></span>
+            <h1>SEO Audit</h1>
+          </div>
+          <button id="audit-btn-reset" class="btn-ghost" disabled>+ New Audit</button>
+        </div>
+        <div class="context-bar">
+          <div class="audit-fields">
+            <input
+              id="audit-url"
+              type="url"
+              class="url-input"
+              placeholder="https://example.com"
+            />
+            <textarea
+              id="audit-context"
+              rows="2"
+              placeholder="Describe the business — e.g. M&amp;A law firm targeting mid-market PE-backed transactions. Services: buy-side, sell-side, management buyouts."
+            ></textarea>
+          </div>
+          <button id="audit-btn-start" class="btn-primary btn-violet">
+            Run Audit <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="pipeline-track">
+        <div class="pipeline-step" id="audit-step-1">
+          <div class="step-node"><span class="step-num">1</span><span class="step-check">✓</span></div>
+          <div class="step-label">Audit</div>
+        </div>
+        <div class="step-line" id="audit-line-1-2"></div>
+        <div class="pipeline-step" id="audit-step-2">
+          <div class="step-node"><span class="step-num">2</span><span class="step-check">✓</span></div>
+          <div class="step-label">Analyse</div>
+        </div>
+        <div class="step-line" id="audit-line-2-3"></div>
+        <div class="pipeline-step" id="audit-step-3">
+          <div class="step-node"><span class="step-num">3</span><span class="step-check">✓</span></div>
+          <div class="step-label">Recommend</div>
+        </div>
+        <div class="step-line" id="audit-line-3-4"></div>
+        <div class="pipeline-step" id="audit-step-4">
+          <div class="step-node"><span class="step-num">4</span><span class="step-check">✓</span></div>
+          <div class="step-label">Implement</div>
+        </div>
+        <div class="step-line" id="audit-line-4-5"></div>
+        <div class="pipeline-step" id="audit-step-5">
+          <div class="step-node"><span class="step-num">5</span><span class="step-check">✓</span></div>
+          <div class="step-label">Done</div>
+        </div>
+      </div>
+
+      <main class="panel-grid">
+
+        <!-- Auditor -->
+        <section class="panel panel--violet" id="audit-panel-auditor">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◉</span>
+              <div>
+                <h2>Auditor</h2>
+                <p class="panel-subtitle">Technical crawl + live competitive research</p>
+              </div>
+            </div>
+            <span class="panel-status" id="audit-auditor-status"></span>
+          </div>
+          <!-- Technical score card (shown after crawl completes) -->
+          <div id="audit-score-card" class="score-card" style="display:none">
+            <div class="score-card-inner">
+              <div class="score-badge" id="audit-score-badge">–</div>
+              <div class="score-details" id="audit-score-details"></div>
+            </div>
+          </div>
+          <div class="stream-output activity-log" id="audit-auditor-output" aria-label="Audit output">
+            <div class="empty-state">Waiting to audit…</div>
+          </div>
+          <div class="panel-footer">
+            <button id="audit-btn-analyse" class="btn-primary btn-violet" disabled>
+              Analyse <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Analyser -->
+        <section class="panel panel--violet" id="audit-panel-analyser">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◫</span>
+              <div>
+                <h2>Analyser</h2>
+                <p class="panel-subtitle">Strengths, gaps and opportunities</p>
+              </div>
+            </div>
+            <span class="panel-status" id="audit-analyser-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="audit-analyser-output" aria-label="Analysis">
+            <div class="empty-state">Waiting for audit to complete…</div>
+          </div>
+          <div class="panel-footer">
+            <button id="audit-btn-recommend" class="btn-primary btn-violet" disabled>
+              Recommend <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Recommender -->
+        <section class="panel panel--violet" id="audit-panel-recommender">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">✦</span>
+              <div>
+                <h2>Recommender</h2>
+                <p class="panel-subtitle">Prioritised action plan</p>
+              </div>
+            </div>
+            <span class="panel-status" id="audit-recommender-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="audit-recommender-output" aria-label="Recommendations">
+            <div class="empty-state">Waiting for analysis to complete…</div>
+          </div>
+          <div class="panel-footer">
+            <button id="audit-btn-implement" class="btn-primary btn-violet" disabled>
+              Implement <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Implementer -->
+        <section class="panel panel--violet" id="audit-panel-implementer">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">⚙</span>
+              <div>
+                <h2>Implementer</h2>
+                <p class="panel-subtitle">Step-by-step instructions + ready-to-use assets</p>
+              </div>
+            </div>
+            <span class="panel-status" id="audit-implementer-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="audit-implementer-output" aria-label="Implementation guide">
+            <div class="empty-state">Waiting for recommendations to complete…</div>
+          </div>
+          <div class="panel-footer writer-footer">
+            <button id="audit-btn-save-notion" class="btn-ghost" disabled>
+              Save to Notion
+            </button>
+            <button id="audit-btn-copy" class="btn-success" disabled>
+              Copy Report
+            </button>
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+
+    <!-- ===== VIDEO DIRECTOR VIEW ===== -->
+    <div id="view-video" class="view">
+
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #ef4444"></span>
+            <h1>Video Director</h1>
+          </div>
+          <button id="video-btn-reset" class="btn-ghost" disabled>+ New Brief</button>
+        </div>
+        <div class="context-bar context-bar--video">
+          <textarea
+            id="video-brief-input"
+            rows="3"
+            placeholder="Describe the video — or paste a social post here. E.g. 30-second TikTok showing how a law firm partner uses AI to research case precedents in half the time."
+          ></textarea>
+          <div class="video-meta-row">
+            <select id="video-platform-select">
+              <option value="TikTok">TikTok</option>
+              <option value="Instagram">Instagram Reel</option>
+              <option value="YouTube">YouTube Short</option>
+              <option value="Other">Other</option>
+            </select>
+            <input
+              id="video-duration-input"
+              type="number"
+              min="5"
+              max="180"
+              placeholder="Duration (seconds)"
+            />
+            <button id="video-btn-direct" class="btn-primary btn-red">
+              Direct This Video <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="panel-grid">
+
+        <section class="panel panel--red" id="video-panel-director">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◈</span>
+              <div>
+                <h2>Director</h2>
+                <p class="panel-subtitle">Shot-by-shot Runway Gen-4 breakdown</p>
+              </div>
+            </div>
+            <span class="panel-status" id="video-director-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="video-stream-output" aria-label="Director stream">
+            <div class="empty-state">Waiting for a brief…</div>
+          </div>
+          <div id="video-concept-card" class="concept-card" style="display:none"></div>
+          <div id="video-shots-container" class="shots-container"></div>
+          <div class="panel-footer writer-footer">
+            <span class="post-count" id="video-shot-count"></span>
+            <button id="video-btn-save" style="display:none" disabled>↑ Save to Notion</button>
+          </div>
+        </section>
+
+      </main>
+
+      <footer class="saved-footer">
+        <span class="saved-label">Saved to Notion</span>
+        <ul id="video-saved-list" class="saved-list">
+          <li class="saved-empty">No briefs saved yet</li>
+        </ul>
+      </footer>
+
+    </div>
+
+    <!-- ===== ON-PAGE OPTIMISER VIEW ===== -->
+    <div id="view-on-page-opt" class="view">
+
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <span class="view-title-dot" style="background: #10b981"></span>
+            <h1>On-Page Optimiser</h1>
+          </div>
+          <button id="opt-btn-reset" class="btn-ghost" disabled>+ New Task</button>
+        </div>
+
+        <!-- Mode toggle -->
+        <div id="opt-mode-toggle" class="mode-toggle-row">
+          <button id="opt-mode-review" class="mode-btn mode-btn--active">
+            Review existing copy
+          </button>
+          <button id="opt-mode-build" class="mode-btn">
+            Build new page
+          </button>
+        </div>
+
+        <!-- Review inputs -->
+        <div id="opt-review-inputs" class="context-bar context-bar--opt">
+          <div class="opt-fields">
+            <textarea
+              id="opt-copy-input"
+              rows="5"
+              placeholder="Paste the existing page copy here — headings, body copy, CTAs. The more complete the better."
+            ></textarea>
+            <div class="opt-meta-row">
+              <input
+                id="opt-keyword-input"
+                type="text"
+                class="url-input"
+                placeholder="Target keyword (e.g. commercial solicitors London)"
+              />
+              <input
+                id="opt-page-type-review"
+                type="text"
+                class="url-input"
+                placeholder="Page type (e.g. Service Page)"
+              />
+            </div>
+            <textarea
+              id="opt-audit-ctx-review"
+              rows="2"
+              placeholder="Optional: paste insights from the SEO Audit team — technical findings, recommendations, competitor gaps."
+            ></textarea>
+          </div>
+          <button id="opt-btn-start-review" class="btn-primary btn-emerald">
+            Analyse Copy <span class="btn-arrow">→</span>
+          </button>
+        </div>
+
+        <!-- Build inputs -->
+        <div id="opt-build-inputs" class="context-bar context-bar--opt" style="display:none">
+          <div class="opt-fields">
+            <textarea
+              id="opt-prompt-input"
+              rows="3"
+              placeholder="Describe the page you need — e.g. service page for an emergency plumber in Manchester, targeting homeowners with burst pipes."
+            ></textarea>
+            <div class="opt-meta-row">
+              <input
+                id="opt-page-type-build"
+                type="text"
+                class="url-input"
+                placeholder="Page type (e.g. Local Service Page)"
+              />
+              <input
+                id="opt-location-input"
+                type="text"
+                class="url-input"
+                placeholder="Location (optional)"
+              />
+            </div>
+            <textarea
+              id="opt-audit-ctx-build"
+              rows="2"
+              placeholder="Optional: paste insights from the SEO Audit team — competitor gaps, keyword opportunities, site context."
+            ></textarea>
+          </div>
+          <button id="opt-btn-start-build" class="btn-primary btn-emerald">
+            Research Keywords <span class="btn-arrow">→</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="pipeline-track">
+        <div class="pipeline-step" id="opt-step-1">
+          <div class="step-node"><span class="step-num">1</span><span class="step-check">✓</span></div>
+          <div class="step-label" id="opt-step-label-1">Analyse</div>
+        </div>
+        <div class="step-line" id="opt-line-1-2"></div>
+        <div class="pipeline-step" id="opt-step-2">
+          <div class="step-node"><span class="step-num">2</span><span class="step-check">✓</span></div>
+          <div class="step-label" id="opt-step-label-2">Optimise</div>
+        </div>
+        <div class="step-line" id="opt-line-2-3"></div>
+        <div class="pipeline-step" id="opt-step-3">
+          <div class="step-node"><span class="step-num">3</span><span class="step-check">✓</span></div>
+          <div class="step-label" id="opt-step-label-3">Save</div>
+        </div>
+      </div>
+
+      <main class="panel-grid panel-grid--2col">
+
+        <!-- Panel A: Analyser / Researcher -->
+        <section class="panel panel--emerald" id="opt-panel-a">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">◎</span>
+              <div>
+                <h2 id="opt-panel-a-title">Analyser</h2>
+                <p class="panel-subtitle" id="opt-panel-a-subtitle">On-page SEO issues identified</p>
+              </div>
+            </div>
+            <span class="panel-status" id="opt-panel-a-status"></span>
+          </div>
+          <div class="stream-output activity-log" id="opt-panel-a-output" aria-label="Analysis output">
+            <div class="empty-state">Waiting to start…</div>
+          </div>
+          <!-- Keyword card (shown in Build mode after research) -->
+          <div id="opt-keyword-card" class="kw-card" style="display:none"></div>
+          <div class="panel-footer">
+            <button id="opt-btn-next-step" class="btn-primary btn-emerald" disabled>
+              Optimise Copy <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Panel B: Copywriter -->
+        <section class="panel panel--emerald" id="opt-panel-b">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-icon">✍</span>
+              <div>
+                <h2>Copywriter</h2>
+                <p class="panel-subtitle">SEO-optimised copy, ready to publish</p>
+              </div>
+            </div>
+            <span class="panel-status" id="opt-panel-b-status"></span>
+          </div>
+          <div class="stream-output prose-output" id="opt-panel-b-output" aria-label="Copywriter output">
+            <div class="empty-state">Waiting for step 1 to complete…</div>
+          </div>
+          <div class="panel-footer writer-footer">
+            <span class="post-count" id="opt-word-count"></span>
+            <button id="opt-btn-save-notion" class="btn-ghost" disabled>
+              Save to Notion
+            </button>
+            <button id="opt-btn-copy" class="btn-success" disabled>
+              Copy Copy
+            </button>
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+
+  </div><!-- #app-main -->
+
+  <!-- ===== ONBOARDING / SETTINGS MODAL ===== -->
+  <div id="onboarding-overlay" class="ob-overlay" style="display:none"></div>
+  <div id="onboarding-modal" class="ob-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ob-title">
+
+    <!-- Step 1: Gemini API Key -->
+    <div id="ob-step-1">
+      <div class="ob-header">
+        <span class="ob-logo">✦</span>
+        <h2 id="ob-title" class="ob-title">Welcome to Digi Agency</h2>
+        <p class="ob-subtitle">To get started, enter your Gemini API key. This powers all AI features.</p>
+      </div>
+
+      <div class="ob-body">
+        <label class="ob-label" for="ob-gemini-key">Gemini API Key</label>
+        <input
+          id="ob-gemini-key"
+          class="ob-input"
+          type="password"
+          placeholder="AIza…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="ob-hint">
+          Get a free key at
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+          — no billing required.
+        </p>
+        <p id="ob-step1-error" class="ob-error"></p>
+      </div>
+
+      <div class="ob-footer">
+        <button id="ob-step1-next" class="btn-primary ob-btn-full">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Notion Setup -->
+    <div id="ob-step-2" style="display:none">
+      <div class="ob-header">
+        <span class="ob-logo">✦</span>
+        <h2 class="ob-title">Connect Notion <span class="ob-optional">(optional)</span></h2>
+        <p class="ob-subtitle">Save articles, social posts, and briefs directly to your Notion workspace.</p>
+      </div>
+
+      <div class="ob-body">
+        <label class="ob-label" for="ob-notion-token">Notion Integration Token</label>
+        <input
+          id="ob-notion-token"
+          class="ob-input"
+          type="password"
+          placeholder="ntn_…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="ob-hint">
+          Create an integration at
+          <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener">notion.so/profile/integrations</a>,
+          then connect it to a page in your workspace.
+        </p>
+
+        <label class="ob-label" for="ob-notion-page" style="margin-top:12px">Notion Parent Page URL</label>
+        <input
+          id="ob-notion-page"
+          class="ob-input"
+          type="url"
+          placeholder="https://notion.so/Your-Page-xxxx"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="ob-hint">Databases will be created inside this page.</p>
+
+        <button id="ob-provision-btn" class="btn-secondary ob-btn-provision">Create databases automatically</button>
+        <div id="ob-provision-status" class="ob-provision-status"></div>
+
+        <p id="ob-step2-error" class="ob-error"></p>
+      </div>
+
+      <div class="ob-footer ob-footer-row">
+        <button id="ob-step2-skip" class="btn-ghost">Skip for now</button>
+        <button id="ob-step2-save" class="btn-primary">Save &amp; finish</button>
+      </div>
+    </div>
+
+  </div><!-- #onboarding-modal -->
+
+  <!-- ===== ERROR TOAST (global) ===== -->
+  <div id="error-toast" class="error-toast" role="alert" aria-live="assertive"></div>
+
+  <script src="/static/onboarding.js"></script>
+  <script src="/static/router.js"></script>
+  <script src="/static/views/home.js"></script>
+  <script src="/static/views/content.js"></script>
+  <script src="/static/views/social.js"></script>
+  <script src="/static/views/assistant.js"></script>
+  <script src="/static/views/seo_audit.js"></script>
+  <script src="/static/views/video.js"></script>
+  <script src="/static/views/on_page_opt.js"></script>
+
+</body>
+</html>

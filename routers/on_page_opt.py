@@ -1,0 +1,385 @@
+"""On-Page Optimiser Team router — all routes live under /api/on-page-opt/"""
+
+import asyncio
+import os
+import uuid
+
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
+from state import get_session, save_session, get_user, log_activity
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from agents.on_page_opt import analyser, researcher, copywriter
+from services.agency_log import log_task
+from services.notion_on_page import save_optimiser_report
+
+router = APIRouter()
+
+_SESSION_DEFAULTS = {
+    "stage": "idle",
+    "mode": "review",
+    "page_type": "",
+    "target_keyword": "",
+    "audit_context": "",
+    "original_copy": "",
+    "analysis": "",
+    "prompt": "",
+    "location": "",
+    "keyword_data": {},
+    "keyword_brief": "",
+    "final_copy": "",
+    "notion_url": None,
+    "user_id": "",
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+async def _get_api_key(session: dict) -> str:
+    user = await get_user(session.get("user_id", ""))
+    return (user or {}).get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+
+
+async def _get_notion_creds(session: dict) -> tuple[str, str]:
+    user = await get_user(session.get("user_id", ""))
+    u = user or {}
+    return u.get("notion_token", ""), u.get("notion_on_page_db_id", "")
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
+
+class CreateSessionPayload(BaseModel):
+    user_id: str = ""
+
+
+class StartReviewRequest(BaseModel):
+    session_id: str
+    copy: str
+    target_keyword: str
+    page_type: str
+    audit_context: str = ""
+
+
+class StartBuildRequest(BaseModel):
+    session_id: str
+    prompt: str
+    page_type: str
+    location: str = ""
+    audit_context: str = ""
+
+
+class SessionRequest(BaseModel):
+    session_id: str
+
+
+# ---------------------------------------------------------------------------
+# Routes — session management
+# ---------------------------------------------------------------------------
+
+@router.post("/session")
+async def create_session(payload: CreateSessionPayload):
+    sid = str(uuid.uuid4())
+    defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
+    await get_session(sid, "on_page_opt", defaults)
+    return {"session_id": sid}
+
+
+@router.get("/state")
+async def get_state(session_id: str):
+    sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
+    return JSONResponse(sess)
+
+
+@router.post("/reset")
+async def reset_session(req: SessionRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    sess.update({
+        "mode": "review",
+        "page_type": "",
+        "target_keyword": "",
+        "audit_context": "",
+        "original_copy": "",
+        "analysis": "",
+        "prompt": "",
+        "location": "",
+        "keyword_data": {},
+        "keyword_brief": "",
+        "final_copy": "",
+        "stage": "idle",
+        "notion_url": None,
+    })
+    await save_session(req.session_id, sess)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Review mode — Analyse existing copy
+# ---------------------------------------------------------------------------
+
+@router.post("/start-review")
+async def start_review(req: StartReviewRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] not in ("idle", "done"):
+        return JSONResponse({"error": "Session already in progress"}, status_code=400)
+    sess["mode"] = "review"
+    sess["original_copy"] = req.copy
+    sess["target_keyword"] = req.target_keyword
+    sess["page_type"] = req.page_type
+    sess["audit_context"] = req.audit_context
+    sess["analysis"] = ""
+    sess["final_copy"] = ""
+    sess["notion_url"] = None
+    sess["stage"] = "analysing"
+    await save_session(req.session_id, sess)
+    await log_activity("on_page_opt", f"Started review: {req.page_type} — {req.target_keyword}")
+    return {"ok": True}
+
+
+@router.get("/stream/analysis")
+async def stream_analysis(session_id: str):
+    sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "analysing":
+        return JSONResponse({"error": "Not in analysing stage"}, status_code=400)
+
+    api_key = await _get_api_key(sess)
+
+    async def generate():
+        full_text = ""
+        async for kind, value in analyser.run(
+            copy=sess["original_copy"],
+            target_keyword=sess["target_keyword"],
+            page_type=sess["page_type"],
+            audit_context=sess["audit_context"],
+            api_key=api_key,
+        ):
+            if kind == "chunk":
+                full_text += value
+                yield sse_chunk(value)
+            elif kind == "done":
+                sess["analysis"] = full_text
+                sess["stage"] = "awaiting_rewrite"
+                await save_session(session_id, sess)
+                yield sse_done()
+            elif kind == "error":
+                sess["stage"] = "idle"
+                await save_session(session_id, sess)
+                yield sse_event({"type": "error", "message": value})
+                yield sse_done()
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+@router.post("/rewrite")
+async def start_rewrite(req: SessionRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "awaiting_rewrite":
+        return JSONResponse({"error": "Not ready to rewrite"}, status_code=400)
+    sess["stage"] = "rewriting"
+    await save_session(req.session_id, sess)
+    return {"ok": True}
+
+
+@router.get("/stream/rewrite")
+async def stream_rewrite(session_id: str):
+    sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "rewriting":
+        return JSONResponse({"error": "Not in rewriting stage"}, status_code=400)
+
+    api_key = await _get_api_key(sess)
+
+    async def generate():
+        full_text = ""
+        async for kind, value in copywriter.run(
+            mode="review",
+            page_type=sess["page_type"],
+            original_copy=sess["original_copy"],
+            target_keyword=sess["target_keyword"],
+            analysis=sess["analysis"],
+            api_key=api_key,
+        ):
+            if kind == "chunk":
+                full_text += value
+                yield sse_chunk(value)
+            elif kind == "done":
+                sess["final_copy"] = full_text
+                sess["stage"] = "done"
+                await save_session(session_id, sess)
+                await log_activity("on_page_opt", f"Optimised copy: {sess['page_type']}")
+                user = await get_user(sess.get("user_id", ""))
+                u = user or {}
+                asyncio.ensure_future(log_task(
+                    "On-Page Opt", "On-Page Opt", f"Review: {sess['page_type']} — {sess['target_keyword']}",
+                    notion_token=u.get("notion_token", ""),
+                    db_id=u.get("notion_agency_log_db_id", ""),
+                ))
+                yield sse_done()
+            elif kind == "error":
+                sess["stage"] = "awaiting_rewrite"
+                await save_session(session_id, sess)
+                yield sse_event({"type": "error", "message": value})
+                yield sse_done()
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+# ---------------------------------------------------------------------------
+# Build mode — Research keywords + write new page
+# ---------------------------------------------------------------------------
+
+@router.post("/start-build")
+async def start_build(req: StartBuildRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] not in ("idle", "done"):
+        return JSONResponse({"error": "Session already in progress"}, status_code=400)
+    sess["mode"] = "build"
+    sess["prompt"] = req.prompt
+    sess["page_type"] = req.page_type
+    sess["location"] = req.location
+    sess["audit_context"] = req.audit_context
+    sess["keyword_data"] = {}
+    sess["keyword_brief"] = ""
+    sess["final_copy"] = ""
+    sess["notion_url"] = None
+    sess["stage"] = "researching"
+    await save_session(req.session_id, sess)
+    await log_activity("on_page_opt", f"Started build: {req.page_type}")
+    return {"ok": True}
+
+
+@router.get("/stream/research")
+async def stream_research(session_id: str):
+    sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "researching":
+        return JSONResponse({"error": "Not in researching stage"}, status_code=400)
+
+    api_key = await _get_api_key(sess)
+
+    async def generate():
+        full_text = ""
+        async for kind, value in researcher.run(
+            prompt=sess["prompt"],
+            page_type=sess["page_type"],
+            location=sess["location"],
+            audit_context=sess["audit_context"],
+            api_key=api_key,
+        ):
+            if kind == "chunk":
+                full_text += value
+                yield sse_chunk(value)
+            elif kind == "keyword_data":
+                sess["keyword_data"] = value
+                sess["keyword_brief"] = full_text
+                await save_session(session_id, sess)
+                yield sse_event({"type": "keyword_data", "data": value})
+            elif kind == "done":
+                sess["stage"] = "awaiting_write"
+                await save_session(session_id, sess)
+                yield sse_done()
+            elif kind == "error":
+                sess["stage"] = "idle"
+                await save_session(session_id, sess)
+                yield sse_event({"type": "error", "message": value})
+                yield sse_done()
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+@router.post("/write")
+async def start_write(req: SessionRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "awaiting_write":
+        return JSONResponse({"error": "Not ready to write"}, status_code=400)
+    sess["stage"] = "writing"
+    await save_session(req.session_id, sess)
+    return {"ok": True}
+
+
+@router.get("/stream/copy")
+async def stream_copy(session_id: str):
+    sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "writing":
+        return JSONResponse({"error": "Not in writing stage"}, status_code=400)
+
+    api_key = await _get_api_key(sess)
+
+    async def generate():
+        full_text = ""
+        async for kind, value in copywriter.run(
+            mode="build",
+            page_type=sess["page_type"],
+            prompt=sess["prompt"],
+            keyword_data=sess["keyword_data"],
+            keyword_brief=sess["keyword_brief"],
+            audit_context=sess["audit_context"],
+            api_key=api_key,
+        ):
+            if kind == "chunk":
+                full_text += value
+                yield sse_chunk(value)
+            elif kind == "done":
+                sess["final_copy"] = full_text
+                sess["stage"] = "done"
+                await save_session(session_id, sess)
+                await log_activity("on_page_opt", f"Built page: {sess['page_type']}")
+                user = await get_user(sess.get("user_id", ""))
+                u = user or {}
+                asyncio.ensure_future(log_task(
+                    "On-Page Opt", "On-Page Opt", f"Build: {sess['page_type']} — {sess['prompt'][:60]}",
+                    notion_token=u.get("notion_token", ""),
+                    db_id=u.get("notion_agency_log_db_id", ""),
+                ))
+                yield sse_done()
+            elif kind == "error":
+                sess["stage"] = "awaiting_write"
+                await save_session(session_id, sess)
+                yield sse_event({"type": "error", "message": value})
+                yield sse_done()
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+# ---------------------------------------------------------------------------
+# Save to Notion (both modes)
+# ---------------------------------------------------------------------------
+
+@router.post("/save-to-notion")
+async def save_to_notion(req: SessionRequest):
+    sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] != "done":
+        return JSONResponse({"error": "Not complete yet"}, status_code=400)
+    if sess.get("notion_url"):
+        return {"notion_url": sess["notion_url"]}
+
+    notion_token, db_id = await _get_notion_creds(sess)
+
+    try:
+        notion_url = await save_optimiser_report(
+            mode=sess["mode"],
+            page_type=sess["page_type"],
+            target_keyword=sess.get("target_keyword", ""),
+            prompt=sess.get("prompt", ""),
+            analysis=sess.get("analysis", ""),
+            keyword_data=sess.get("keyword_data", {}),
+            keyword_brief=sess.get("keyword_brief", ""),
+            final_copy=sess["final_copy"],
+            notion_token=notion_token,
+            db_id=db_id,
+        )
+        sess["notion_url"] = notion_url
+        await save_session(req.session_id, sess)
+        if notion_url:
+            user = await get_user(sess.get("user_id", ""))
+            u = user or {}
+            asyncio.ensure_future(log_task(
+                "On-Page Opt", "On-Page Opt", f"Saved to Notion: {sess['page_type']}", link=notion_url,
+                notion_token=u.get("notion_token", ""),
+                db_id=u.get("notion_agency_log_db_id", ""),
+            ))
+        return {"notion_url": notion_url}
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
