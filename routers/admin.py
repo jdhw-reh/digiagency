@@ -12,10 +12,12 @@ POST /api/admin/users/activate        — set subscription_status = active
 POST /api/admin/users/revoke          — set subscription_status = cancelled
 """
 
+import asyncio
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import stripe as _stripe
 from fastapi import APIRouter, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
@@ -23,12 +25,14 @@ from pydantic import BaseModel
 from state import (
     get_account,
     get_activity_log,
+    get_admin_note,
     get_analytics_counters,
     get_user_activity,
     list_accounts,
     list_accounts_enriched,
     redis_client,
     save_account,
+    save_admin_note,
 )
 
 router = APIRouter()
@@ -57,6 +61,10 @@ class AdminLoginPayload(BaseModel):
 
 class UserEmailPayload(BaseModel):
     email: str
+
+
+class NotePayload(BaseModel):
+    note: str
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +212,60 @@ async def admin_analytics(agency_admin: str | None = Cookie(default=None)):
     return {**counters, "signup_trend": signup_trend}
 
 
+@router.get("/api/admin/billing")
+async def admin_billing(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe_key:
+        return {"available": False, "reason": "STRIPE_SECRET_KEY not set"}
+
+    def _fetch():
+        _stripe.api_key = stripe_key
+        subs = _stripe.Subscription.list(status="active", limit=100, expand=["data.items.data.price"])
+        mrr_cents = 0
+        for sub in subs.auto_paging_iter():
+            for item in sub["items"]["data"]:
+                price = item.get("price") or {}
+                amount = price.get("unit_amount") or 0
+                interval = (price.get("recurring") or {}).get("interval", "month")
+                mrr_cents += amount // 12 if interval == "year" else amount
+
+        import time
+        since = int(time.time()) - 30 * 86400
+        failed = list(
+            _stripe.Invoice.list(status="open", created={"gte": since}, limit=100).auto_paging_iter()
+        )
+        return {"mrr_cents": mrr_cents, "failed_30d": len(failed)}
+
+    try:
+        result = await asyncio.to_thread(_fetch)
+        return {
+            "available": True,
+            "mrr": round(result["mrr_cents"] / 100, 2),
+            "failed_30d": result["failed_30d"],
+        }
+    except Exception as exc:
+        return {"available": True, "mrr": None, "failed_30d": None, "error": str(exc)}
+
+
+@router.get("/api/admin/users/{email}/note")
+async def admin_get_note(email: str, agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    note = await get_admin_note(email)
+    return {"note": note}
+
+
+@router.post("/api/admin/users/{email}/note")
+async def admin_save_note(email: str, payload: NotePayload, agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    await save_admin_note(email, payload.note)
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------------------
 # HTML templates (inline — no extra files needed)
 # ---------------------------------------------------------------------------
@@ -279,7 +341,7 @@ def _admin_page() -> str:
   .logout-btn:hover { border-color: #888; color: #fff; }
 
   /* Stats cards */
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 32px; }
   .stat-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 24px; }
   .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
   .stat-value { font-size: 28px; font-weight: 700; color: #6366f1; }
@@ -348,6 +410,35 @@ def _admin_page() -> str:
                  margin-left: 6px; vertical-align: middle; }
   .empty { text-align: center; padding: 48px; color: #555; font-size: 15px; }
 
+  /* Table controls (search / filter / export) */
+  .table-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .table-controls input { flex: 1; max-width: 280px; padding: 8px 12px; background: #1a1a1a;
+    border: 1px solid #333; border-radius: 8px; color: #e5e5e5; font-size: 13px; outline: none; }
+  .table-controls input:focus { border-color: #6366f1; }
+  .table-controls select { padding: 8px 12px; background: #1a1a1a; border: 1px solid #333;
+    border-radius: 8px; color: #e5e5e5; font-size: 13px; outline: none; cursor: pointer; }
+  .table-controls select:focus { border-color: #6366f1; }
+  .export-btn { padding: 8px 16px; background: #1a1a1a; border: 1px solid #444;
+    border-radius: 8px; color: #aaa; font-size: 13px; cursor: pointer; margin-left: auto; }
+  .export-btn:hover { border-color: #888; color: #fff; }
+  .btn-stripe { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px;
+    background: #0d2240; border: 1px solid #1a4a7a; color: #60a5fa; text-decoration: none; }
+  .btn-stripe:hover { background: #1a3a5f; }
+
+  /* Admin notes (inside modal) */
+  .notes-section { padding: 16px 24px; border-top: 1px solid #2a2a2a; }
+  .notes-label { font-size: 12px; color: #666; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 8px; }
+  .notes-textarea { width: 100%; background: #111; border: 1px solid #333; border-radius: 8px;
+    color: #e5e5e5; font-size: 13px; padding: 10px 12px; resize: vertical; min-height: 72px;
+    font-family: inherit; outline: none; }
+  .notes-textarea:focus { border-color: #6366f1; }
+  .notes-save { margin-top: 8px; padding: 7px 18px; background: #6366f1; border: none;
+    border-radius: 7px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .notes-save:hover { background: #4f52d6; }
+  .notes-saved { color: #4ade80; font-size: 12px; margin-left: 10px; opacity: 0;
+    transition: opacity 0.3s; }
+
   /* Activity feed */
   .activity-list { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; overflow: hidden; }
   .activity-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px;
@@ -412,6 +503,10 @@ def _admin_page() -> str:
     <div class="stat-label">New This Month</div>
     <div class="stat-value" id="stat-new">—</div>
   </div>
+  <div class="stat-card">
+    <div class="stat-label">MRR <span id="stat-failed" style="font-size:11px;color:#f87171;margin-left:6px;display:none"></span></div>
+    <div class="stat-value green" id="stat-mrr">—</div>
+  </div>
 </div>
 
 <!-- Analytics -->
@@ -441,6 +536,16 @@ def _admin_page() -> str:
 <!-- Users table -->
 <div class="section">
   <h2>Users</h2>
+  <div class="table-controls">
+    <input type="text" id="search-input" placeholder="Search by email…" oninput="filterTable()">
+    <select id="status-filter" onchange="filterTable()">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+    <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+  </div>
   <table id="users-table">
     <thead>
       <tr>
@@ -481,6 +586,14 @@ def _admin_page() -> str:
     </div>
     <div class="modal-body" id="modal-body">
       <div class="empty-activity">Loading…</div>
+    </div>
+    <div class="notes-section">
+      <div class="notes-label">Admin Notes</div>
+      <textarea class="notes-textarea" id="notes-textarea" placeholder="Private notes about this user…"></textarea>
+      <div style="display:flex;align-items:center">
+        <button class="notes-save" onclick="saveNote()">Save Note</button>
+        <span class="notes-saved" id="notes-saved">Saved</span>
+      </div>
     </div>
   </div>
 </div>
@@ -544,41 +657,85 @@ async function loadUsers() {
       tbody.innerHTML = '<tr><td colspan="8" class="empty">No accounts yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = data.users.map(u => {
-      const status    = u.subscription_status || 'inactive';
-      const badgeCls  = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
-      const signedUp  = formatDate(u.created_at);
-      const lastLogin = u.last_login_at
-        ? `<span class="ts-cell">${escHtml(relativeTime(u.last_login_at))}</span>`
-        : '<span class="ts-cell never">Never</span>';
-      const lastActive = u.last_activity_at
-        ? `<span class="ts-cell">${escHtml(relativeTime(u.last_activity_at))}</span>`
-        : '<span class="ts-cell never">Never</span>';
-      const setupHtml  = u.setup_complete
-        ? '<span class="setup-yes" title="API key configured">✓</span>'
-        : '<span class="setup-no"  title="Not set up">✗</span>';
-      const countHtml  = `<span class="count-badge">${u.activity_count || 0}</span>`;
-      const churnHtml  = u.is_churn_risk ? '<span class="churn-badge">At risk</span>' : '';
-      const emailSafe  = escHtml(u.email);
-      const rowCls     = u.is_churn_risk ? 'churn-row' : '';
-      return `<tr class="${rowCls}">
-        <td>${emailSafe}${churnHtml}</td>
-        <td><span class="badge ${badgeCls}">${status}</span></td>
-        <td>${setupHtml}</td>
-        <td>${signedUp}</td>
-        <td>${lastLogin}</td>
-        <td>${lastActive}</td>
-        <td>${countHtml}</td>
-        <td>
-          <button class="action-btn btn-activate" onclick="activate('${emailSafe}')">Activate</button>
-          <button class="action-btn btn-revoke"   onclick="revoke('${emailSafe}')">Revoke</button>
-          <button class="btn-view"                onclick="openModal('${emailSafe}')">Activity</button>
-        </td>
-      </tr>`;
-    }).join('');
+    window._allUsers = data.users;
+    renderUsers(data.users);
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty">Failed to load users: ${escHtml(e.message)}</td></tr>`;
   }
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('users-body');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No matching users.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const status    = u.subscription_status || 'inactive';
+    const badgeCls  = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
+    const signedUp  = formatDate(u.created_at);
+    const lastLogin = u.last_login_at
+      ? `<span class="ts-cell">${escHtml(relativeTime(u.last_login_at))}</span>`
+      : '<span class="ts-cell never">Never</span>';
+    const lastActive = u.last_activity_at
+      ? `<span class="ts-cell">${escHtml(relativeTime(u.last_activity_at))}</span>`
+      : '<span class="ts-cell never">Never</span>';
+    const setupHtml  = u.setup_complete
+      ? '<span class="setup-yes" title="API key configured">&#x2713;</span>'
+      : '<span class="setup-no"  title="Not set up">&#x2717;</span>';
+    const countHtml  = `<span class="count-badge">${u.activity_count || 0}</span>`;
+    const churnHtml  = u.is_churn_risk ? '<span class="churn-badge">At risk</span>' : '';
+    const emailSafe  = escHtml(u.email);
+    const rowCls     = u.is_churn_risk ? 'churn-row' : '';
+    const stripeLink = u.stripe_customer_id
+      ? `<a class="btn-stripe" href="https://dashboard.stripe.com/customers/${escHtml(u.stripe_customer_id)}" target="_blank" rel="noopener">Stripe &#x2197;</a>`
+      : '';
+    return `<tr class="${rowCls}" data-email="${emailSafe}" data-status="${status}">
+      <td>${emailSafe}${churnHtml}</td>
+      <td><span class="badge ${badgeCls}">${status}</span></td>
+      <td>${setupHtml}</td>
+      <td>${signedUp}</td>
+      <td>${lastLogin}</td>
+      <td>${lastActive}</td>
+      <td>${countHtml}</td>
+      <td>
+        <button class="action-btn btn-activate" onclick="activate('${emailSafe}')">Activate</button>
+        <button class="action-btn btn-revoke"   onclick="revoke('${emailSafe}')">Revoke</button>
+        <button class="btn-view"                onclick="openModal('${emailSafe}')">Activity</button>
+        ${stripeLink}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable() {
+  const query  = document.getElementById('search-input').value.toLowerCase();
+  const status = document.getElementById('status-filter').value;
+  const users  = (window._allUsers || []).filter(u => {
+    const emailMatch  = !query  || (u.email || '').toLowerCase().includes(query);
+    const statusMatch = !status || (u.subscription_status || 'inactive') === status;
+    return emailMatch && statusMatch;
+  });
+  renderUsers(users);
+}
+
+function exportCSV() {
+  const users = window._allUsers || [];
+  if (!users.length) { showToast('No data to export'); return; }
+  const cols = ['email','subscription_status','setup_complete','activity_count','created_at','last_login_at','last_activity_at','stripe_customer_id'];
+  const header = cols.join(',');
+  const rows = users.map(u =>
+    cols.map(c => {
+      const v = u[c] == null ? '' : String(u[c]);
+      return v.includes(',') || v.includes('"') ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }).join(',')
+  );
+  const csv = [header, ...rows].join('\\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'users.csv'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ---- Activity feed ----
@@ -634,27 +791,74 @@ async function revoke(email) {
   else { showToast('Error revoking ' + email); }
 }
 
+// ---- Billing ----
+async function loadBilling() {
+  try {
+    const res = await fetch('/api/admin/billing');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d.available) return;
+    const mrr = document.getElementById('stat-mrr');
+    const failedEl = document.getElementById('stat-failed');
+    if (d.mrr != null) {
+      mrr.textContent = '$' + d.mrr.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    } else {
+      mrr.textContent = d.error ? 'Error' : '—';
+    }
+    if (d.failed_30d != null && d.failed_30d > 0) {
+      failedEl.textContent = d.failed_30d + ' failed';
+      failedEl.style.display = 'inline';
+    }
+  } catch(e) {}
+}
+
 // ---- Per-user activity modal ----
+let _modalEmail = '';
+
 async function openModal(email) {
+  _modalEmail = email;
   document.getElementById('modal-email').textContent = email;
   document.getElementById('modal-body').innerHTML = '<div class="empty-activity">Loading…</div>';
+  document.getElementById('notes-textarea').value = '';
+  document.getElementById('notes-saved').style.opacity = '0';
   document.getElementById('modal').classList.add('open');
   try {
-    const res = await fetch('/api/admin/users/' + encodeURIComponent(email) + '/activity');
-    const data = await res.json();
-    if (!data.activity || data.activity.length === 0) {
+    const [actRes, noteRes] = await Promise.all([
+      fetch('/api/admin/users/' + encodeURIComponent(email) + '/activity'),
+      fetch('/api/admin/users/' + encodeURIComponent(email) + '/note'),
+    ]);
+    const actData  = await actRes.json();
+    const noteData = await noteRes.json();
+    if (!actData.activity || actData.activity.length === 0) {
       document.getElementById('modal-body').innerHTML = '<div class="empty-activity">No activity recorded for this user yet.</div>';
-      return;
+    } else {
+      document.getElementById('modal-body').innerHTML = actData.activity.map(a => `
+        <div class="activity-item">
+          ${teamBadge(a.team)}
+          <span class="activity-action">${escHtml(a.action)}</span>
+          <span class="activity-time">${escHtml(relativeTime(a.ts) || a.ts)}</span>
+        </div>`).join('');
     }
-    document.getElementById('modal-body').innerHTML = data.activity.map(a => `
-      <div class="activity-item">
-        ${teamBadge(a.team)}
-        <span class="activity-action">${escHtml(a.action)}</span>
-        <span class="activity-time">${escHtml(relativeTime(a.ts) || a.ts)}</span>
-      </div>`).join('');
+    document.getElementById('notes-textarea').value = noteData.note || '';
   } catch(e) {
     document.getElementById('modal-body').innerHTML = '<div class="empty-activity">Failed to load.</div>';
   }
+}
+
+async function saveNote() {
+  const note = document.getElementById('notes-textarea').value;
+  const savedEl = document.getElementById('notes-saved');
+  try {
+    const res = await fetch('/api/admin/users/' + encodeURIComponent(_modalEmail) + '/note', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({note}),
+    });
+    if (res.ok) {
+      savedEl.style.opacity = '1';
+      setTimeout(() => { savedEl.style.opacity = '0'; }, 2000);
+    }
+  } catch(e) {}
 }
 
 function closeModal() {
@@ -752,6 +956,7 @@ loadStats();
 loadUsers();
 loadActivity();
 loadAnalytics();
+loadBilling();
 </script>
 </body>
 </html>"""

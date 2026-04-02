@@ -87,6 +87,22 @@ async def get_user_activity(email: str, limit: int = 20) -> list[dict]:
     return [json.loads(i) for i in items]
 
 
+# ---------------------------------------------------------------------------
+# Admin notes (freeform per-user notes visible only in admin panel)
+# ---------------------------------------------------------------------------
+
+async def get_admin_note(email: str) -> str:
+    return await redis_client.get(f"admin_note:{email.lower()}") or ""
+
+
+async def save_admin_note(email: str, note: str) -> None:
+    key = f"admin_note:{email.lower()}"
+    if note.strip():
+        await redis_client.setex(key, 86400 * 365, note)
+    else:
+        await redis_client.delete(key)
+
+
 async def list_accounts_enriched() -> list[dict]:
     """list_accounts() enriched with last_activity_at, activity_count, setup_complete, is_churn_risk."""
     accounts = await list_accounts()
