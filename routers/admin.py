@@ -16,23 +16,22 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from state import get_account, list_accounts, save_account
+from state import get_account, list_accounts, redis_client, save_account
 
 router = APIRouter()
 
 _ADMIN_COOKIE = "agency_admin"
 _ADMIN_TOKEN_TTL = 86400 * 7  # 7 days
 
-# In-memory set of valid admin session tokens (small enough; server restarts = re-login)
-_admin_sessions: set[str] = set()
-
 
 def _get_admin_password() -> str:
     return os.environ.get("ADMIN_PASSWORD", "")
 
 
-def _is_admin(cookie: str | None) -> bool:
-    return bool(cookie and cookie in _admin_sessions)
+async def _is_admin(cookie: str | None) -> bool:
+    if not cookie:
+        return False
+    return bool(await redis_client.get(f"admin_session:{cookie}"))
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ class UserEmailPayload(BaseModel):
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel(agency_admin: str | None = Cookie(default=None)):
-    if not _is_admin(agency_admin):
+    if not await _is_admin(agency_admin):
         return HTMLResponse(_login_page(), status_code=200)
     return HTMLResponse(_admin_page())
 
@@ -67,7 +66,7 @@ async def admin_login(payload: AdminLoginPayload, response: Response):
         return JSONResponse({"error": "Wrong password."}, status_code=401)
 
     token = secrets.token_urlsafe(32)
-    _admin_sessions.add(token)
+    await redis_client.setex(f"admin_session:{token}", _ADMIN_TOKEN_TTL, "1")
     response.set_cookie(
         key=_ADMIN_COOKIE,
         value=token,
@@ -82,7 +81,7 @@ async def admin_login(payload: AdminLoginPayload, response: Response):
 @router.post("/admin/logout")
 async def admin_logout(response: Response, agency_admin: str | None = Cookie(default=None)):
     if agency_admin:
-        _admin_sessions.discard(agency_admin)
+        await redis_client.delete(f"admin_session:{agency_admin}")
     response.delete_cookie(_ADMIN_COOKIE)
     return RedirectResponse("/admin", status_code=303)
 
@@ -93,7 +92,7 @@ async def admin_logout(response: Response, agency_admin: str | None = Cookie(def
 
 @router.get("/api/admin/users")
 async def admin_list_users(agency_admin: str | None = Cookie(default=None)):
-    if not _is_admin(agency_admin):
+    if not await _is_admin(agency_admin):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     accounts = await list_accounts()
     return {"users": accounts}
@@ -101,7 +100,7 @@ async def admin_list_users(agency_admin: str | None = Cookie(default=None)):
 
 @router.post("/api/admin/users/activate")
 async def admin_activate(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
-    if not _is_admin(agency_admin):
+    if not await _is_admin(agency_admin):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     account = await get_account(payload.email)
     if not account:
@@ -113,7 +112,7 @@ async def admin_activate(payload: UserEmailPayload, agency_admin: str | None = C
 
 @router.post("/api/admin/users/revoke")
 async def admin_revoke(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
-    if not _is_admin(agency_admin):
+    if not await _is_admin(agency_admin):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     account = await get_account(payload.email)
     if not account:
@@ -245,13 +244,18 @@ def _admin_page() -> str:
 
 <script>
 async function loadUsers() {
-  const res = await fetch('/api/admin/users');
-  const data = await res.json();
   const tbody = document.getElementById('users-body');
-  if (!data.users || data.users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">No accounts yet.</td></tr>';
-    return;
-  }
+  try {
+    const res = await fetch('/api/admin/users');
+    const data = await res.json();
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">Error: ${data.error || res.status}</td></tr>`;
+      return;
+    }
+    if (!data.users || data.users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No accounts yet.</td></tr>';
+      return;
+    }
   tbody.innerHTML = data.users.map(u => {
     const status = u.subscription_status || 'inactive';
     const badgeClass = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
@@ -266,6 +270,9 @@ async function loadUsers() {
       </td>
     </tr>`;
   }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">Failed to load users: ${e.message}</td></tr>`;
+  }
 }
 
 function escHtml(s) {

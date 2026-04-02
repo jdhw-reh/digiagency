@@ -27,10 +27,11 @@ async function doLogin() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    let data = {};
+    try { data = await res.json(); } catch { /* non-JSON response */ }
 
     if (!res.ok) {
-      errEl.textContent = data.error || "Login failed.";
+      errEl.textContent = data.error || `Login failed (${res.status}).`;
       return;
     }
 
@@ -66,10 +67,11 @@ async function doRegister() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    let data = {};
+    try { data = await res.json(); } catch { /* non-JSON response */ }
 
     if (!res.ok) {
-      errEl.textContent = data.error || "Registration failed.";
+      errEl.textContent = data.error || `Registration failed (${res.status}).`;
       return;
     }
 
