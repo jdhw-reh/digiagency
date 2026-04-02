@@ -13,6 +13,7 @@ POST /api/admin/users/revoke          — set subscription_status = cancelled
 """
 
 import asyncio
+import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -138,9 +139,36 @@ async def admin_revoke(payload: UserEmailPayload, agency_admin: str | None = Coo
     account = await get_account(payload.email)
     if not account:
         return JSONResponse({"error": "User not found"}, status_code=404)
-    account["subscription_status"] = "cancelled"
-    await save_account(payload.email, account)
-    return {"ok": True, "email": payload.email, "subscription_status": "cancelled"}
+    # Store a revoked record (so admin can see them), then delete the account
+    # so the email is free to re-register
+    revoked_record = {
+        "email": payload.email.lower(),
+        "revoked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await redis_client.setex(f"revoked:{payload.email.lower()}", 86400 * 365, json.dumps(revoked_record))
+    await redis_client.delete(f"account:{payload.email.lower()}")
+    return {"ok": True, "email": payload.email}
+
+
+@router.get("/api/admin/revoked")
+async def admin_list_revoked(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    keys = [k async for k in redis_client.scan_iter("revoked:*")]
+    if not keys:
+        return {"revoked": []}
+    values = await redis_client.mget(keys)
+    revoked = [json.loads(v) for v in values if v]
+    revoked.sort(key=lambda r: r.get("revoked_at", ""), reverse=True)
+    return {"revoked": revoked}
+
+
+@router.post("/api/admin/revoked/remove")
+async def admin_remove_revoked(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    await redis_client.delete(f"revoked:{payload.email.lower()}")
+    return {"ok": True}
 
 
 @router.get("/api/admin/stats")
@@ -574,6 +602,23 @@ def _admin_page() -> str:
   </div>
 </div>
 
+<!-- Revoked accounts -->
+<div class="section">
+  <h2>Revoked Accounts</h2>
+  <table id="revoked-table">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Revoked</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="revoked-body">
+      <tr><td colspan="3" class="empty">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
 <!-- Per-user activity modal -->
 <div class="modal-backdrop" id="modal" onclick="closeModalOnBackdrop(event)">
   <div class="modal">
@@ -951,12 +996,47 @@ function renderWeekdayChart(data) {
   }).join('');
 }
 
+// ---- Revoked accounts ----
+async function loadRevoked() {
+  const tbody = document.getElementById('revoked-body');
+  try {
+    const res = await fetch('/api/admin/revoked');
+    const data = await res.json();
+    if (!data.revoked || data.revoked.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="empty">No revoked accounts.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.revoked.map(r => {
+      const email = escHtml(r.email);
+      const when  = r.revoked_at ? relativeTime(r.revoked_at) || formatDate(r.revoked_at) : '—';
+      return `<tr data-email="${email}">
+        <td>${email}</td>
+        <td class="ts-cell">${escHtml(when)}</td>
+        <td><button class="action-btn btn-revoke" onclick="removeRevoked('${email}')">Remove from list</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">Failed to load: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function removeRevoked(email) {
+  if (!confirm('Remove ' + email + ' from the revoked list? This does not restore their account.')) return;
+  const res = await fetch('/api/admin/revoked/remove', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email}),
+  });
+  if (res.ok) { showToast(email + ' removed from revoked list'); loadRevoked(); }
+  else { showToast('Error removing ' + email); }
+}
+
 // ---- Init ----
 loadStats();
 loadUsers();
 loadActivity();
 loadAnalytics();
 loadBilling();
+loadRevoked();
 </script>
 </body>
 </html>"""
