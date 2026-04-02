@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
+  <script>(function(){var t=localStorage.getItem('digi_agency_theme');if(t==='dark')document.documentElement.dataset.theme='dark';})()</script>
 </head>
 <body>
 
@@ -58,6 +59,13 @@
         <span class="nav-dot" style="--dot: #10b981"></span>
         On-Page Optimiser
       </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <button id="theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode">
+        <span class="theme-icon" id="theme-icon">🌙</span>
+        <span id="theme-label">Dark mode</span>
+      </button>
     </div>
   </nav>
 
@@ -971,6 +979,7 @@
   <!-- ===== ERROR TOAST (global) ===== -->
   <div id="error-toast" class="error-toast" role="alert" aria-live="assertive"></div>
 
+  <script src="/static/theme.js"></script>
   <script src="/static/auth-interceptor.js"></script>
   <script src="/static/onboarding.js"></script>
   <script src="/static/router.js"></script>

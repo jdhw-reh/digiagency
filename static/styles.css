@@ -2295,3 +2295,145 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 
 .ob-db-ok .ob-db-icon { color: #10b981; }
 .ob-db-err .ob-db-icon { color: #ef4444; }
+
+/* ============================================================
+   Theme toggle button (sidebar footer)
+   ============================================================ */
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+
+.theme-toggle:hover {
+  color: var(--text-body);
+  background: var(--bg-hover);
+}
+
+.theme-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+
+/* ============================================================
+   Dark theme — Tomorrow Night Blue
+   ============================================================ */
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-base:       #002451;
+  --bg-surface:    #00346e;
+  --bg-raised:     #003060;
+  --bg-hover:      #003875;
+  --bg-input:      #001a40;
+
+  /* Borders */
+  --border:        #0d4a8a;
+  --border-subtle: #0a3a70;
+  --border-mid:    #1a5a9a;
+  --border-accent: #5ba3ff;
+
+  /* Text */
+  --text-primary:  #ffffff;
+  --text-body:     #e8f4ff;
+  --text-muted:    #7285b7;
+  --text-dim:      #4a6a9a;
+
+  /* Accent — sky blue */
+  --accent:        #5ba3ff;
+  --accent-2:      #bbdaff;
+  --accent-warm:   #ffc58f;
+  --accent-teal:   #99ffff;
+  --accent-violet: #ebbbff;
+  --accent-grad:   linear-gradient(135deg, #5ba3ff 0%, #bbdaff 100%);
+  --accent-glow:   0 0 18px rgba(91, 163, 255, 0.22);
+
+  /* Status */
+  --success:       #d1f1a9;
+  --success-dark:  #b0d880;
+  --warning:       #ffc58f;
+  --danger:        #ff9da4;
+
+  /* Shadows */
+  --panel-shadow:  0 1px 3px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.28);
+}
+
+/* Body gradient — navy instead of warm off-white */
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 90% 70% at 10% 0%, rgba(91,163,255,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 90% 100%, rgba(153,255,255,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 60% 50%, rgba(235,187,255,0.04) 0%, transparent 60%),
+    #002451;
+}
+
+/* Sidebar */
+[data-theme="dark"] #sidebar {
+  background: rgba(0, 48, 96, 0.92);
+  border-right-color: var(--border);
+}
+
+/* Nav active state */
+[data-theme="dark"] .nav-link--active {
+  background: rgba(91, 163, 255, 0.12);
+}
+
+/* Team cards on home view */
+[data-theme="dark"] .team-card {
+  background: rgba(0, 52, 110, 0.95);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.2);
+}
+
+[data-theme="dark"] .team-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 1px color-mix(in srgb, var(--card-color) 30%, transparent);
+}
+
+/* View header (top bar in team views) */
+[data-theme="dark"] .view-header {
+  background: rgba(0, 52, 110, 0.92);
+}
+
+/* Agent panels */
+[data-theme="dark"] .panel {
+  background: rgba(0, 52, 110, 0.90);
+  border-color: var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
+}
+
+[data-theme="dark"] .panel.panel--active {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25), 0 0 28px rgba(91, 163, 255, 0.22);
+}
+
+/* Focus ring colour */
+[data-theme="dark"] .context-bar textarea:focus,
+[data-theme="dark"] .social-url-row input[type="url"]:focus {
+  box-shadow: 0 0 0 3px rgba(91, 163, 255, 0.18);
+}
+
+/* Platform badges that use black backgrounds — invert for dark */
+[data-theme="dark"] .platform-badge--x,
+[data-theme="dark"] .platform-badge--threads {
+  background: rgba(255,255,255,0.07);
+}
+
+/* Scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #1a5a9a; border-radius: 3px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #2a6aaa; }
