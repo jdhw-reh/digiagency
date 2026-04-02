@@ -107,7 +107,9 @@ Then write every shot in this exact format:
 
 After all shots, write a single short paragraph as a director's note \
 covering the overall visual rhythm, pacing, and any editorial decisions the editor \
-should know."""
+should know.
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 DIRECTOR_PROMPT = """\
 Platform: {platform}

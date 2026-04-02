@@ -28,7 +28,9 @@ When researching accounts:
 - Search Social Blade, third-party tools, or news/media coverage for performance data
 - If direct stats are unavailable, note that and describe content patterns instead
 
-Be specific. Vague intelligence wastes everyone's time."""
+Be specific. Vague intelligence wastes everyone's time.
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 SCOUT_PROMPT = """Profile URL: {profile_url}
 Platform: {platform}

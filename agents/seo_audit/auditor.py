@@ -34,7 +34,9 @@ Use Google Search to:
 3. Find keyword gaps and missed opportunities
 4. Assess the competitive landscape in the niche
 
-Be specific and ground every observation in actual findings — not assumptions."""
+Be specific and ground every observation in actual findings — not assumptions.
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 AUDITOR_PROMPT = """Audit this website for SEO performance:
 

@@ -45,7 +45,9 @@ After the article, add a separator line and a meta description:
 
 ---
 **Meta description:** [150–160 character summary that includes the primary keyword and \
-gives a clear reason to click — written as a complete sentence, no truncation]"""
+gives a clear reason to click — written as a complete sentence, no truncation]
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 WRITER_PROMPT = """Business context: {context}
 

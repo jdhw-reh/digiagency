@@ -13,7 +13,9 @@ from google.genai import types
 
 ANALYSER_SYSTEM_PROMPT = """You are a senior SEO strategist who turns raw audit data \
 into clear strategic analysis. You are direct, specific, and always tie observations \
-to business impact. You do not repeat the raw data — you interpret it."""
+to business impact. You do not repeat the raw data — you interpret it.
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 ANALYSER_PROMPT = """Here is the raw SEO audit for {url}:
 

@@ -31,7 +31,9 @@ recommending topics. Surface topics where the business described has a clear aut
 over generic competitors.
 
 Return your research as instructed. Always ground your competition assessment in what you \
-actually find in the SERP, not assumptions."""
+actually find in the SERP, not assumptions.
+
+You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
 
 RESEARCHER_PROMPT = """Business context: {context}
 
