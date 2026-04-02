@@ -21,6 +21,7 @@ function getVideoUi() {
     platformSelect:  document.getElementById("video-platform-select"),
     durationInput:   document.getElementById("video-duration-input"),
     btnDirect:       document.getElementById("video-btn-direct"),
+    btnCopyPrompts:  document.getElementById("video-btn-copy-prompts"),
     btnSave:         document.getElementById("video-btn-save"),
     btnReset:        document.getElementById("video-btn-reset"),
     streamOutput:    document.getElementById("video-stream-output"),
@@ -37,16 +38,18 @@ function getVideoUi() {
 // ---------------------------------------------------------------------------
 
 const VIDEO_STAGE_CONFIG = {
-  idle:      { direct: true,  save: false, reset: false },
-  directing: { direct: false, save: false, reset: false },
-  done:      { direct: true,  save: false, reset: true  },
+  idle:      { direct: true,  copy: false, save: false, reset: false },
+  directing: { direct: false, copy: false, save: false, reset: false },
+  done:      { direct: true,  copy: true,  save: false, reset: true  },
 };
 
 function setVideoStage(stage) {
   const cfg = VIDEO_STAGE_CONFIG[stage] || VIDEO_STAGE_CONFIG.idle;
-  vui.btnDirect.disabled = !cfg.direct;
-  vui.btnSave.disabled   = !cfg.save;
-  vui.btnReset.disabled  = !cfg.reset;
+  vui.btnDirect.disabled        = !cfg.direct;
+  vui.btnCopyPrompts.disabled   = !cfg.copy;
+  vui.btnCopyPrompts.style.display = cfg.copy ? "" : "none";
+  vui.btnSave.disabled          = !cfg.save;
+  vui.btnReset.disabled         = !cfg.reset;
 
   vui.directorStatus.textContent =
     stage === "directing" ? "Working…" :
@@ -396,6 +399,20 @@ function viewDidMount_video() {
 
   // Wire buttons
   vui.btnDirect.addEventListener("click", handleDirectClick);
+  vui.btnCopyPrompts.addEventListener("click", async () => {
+    const promptEls = vui.shotsContainer.querySelectorAll(".runway-prompt-text");
+    const lines = [];
+    promptEls.forEach((el, i) => {
+      lines.push(`Shot ${i + 1}: ${el.textContent.trim()}`);
+    });
+    try {
+      await navigator.clipboard.writeText(lines.join("\n\n"));
+      vui.btnCopyPrompts.textContent = "Copied!";
+      setTimeout(() => { vui.btnCopyPrompts.textContent = "Copy All Prompts"; }, 2000);
+    } catch {
+      showVideoError("Could not copy to clipboard");
+    }
+  });
   vui.btnSave.addEventListener("click", handleSaveClick);
   vui.btnReset.addEventListener("click", handleResetClick);
 

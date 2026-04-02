@@ -625,7 +625,7 @@ async function copyOptOutput() {
   try {
     await navigator.clipboard.writeText(text);
     opu.btnCopy.textContent = "Copied!";
-    setTimeout(() => { opu.btnCopy.textContent = "Copy Copy"; }, 2000);
+    setTimeout(() => { opu.btnCopy.textContent = "Copy Content"; }, 2000);
   } catch (e) {
     showOptError("Could not copy to clipboard");
   }

@@ -7,13 +7,13 @@
 const SESSION_KEY = "agency_content_session";
 
 const STAGES = {
-  idle:           { research: true,  plan: false, write: false, save: false, reset: false },
-  researching:    { research: false, plan: false, write: false, save: false, reset: false },
-  awaiting_topic: { research: false, plan: true,  write: false, save: false, reset: false },
-  planning:       { research: false, plan: false, write: false, save: false, reset: false },
-  awaiting_write: { research: false, plan: false, write: true,  save: false, reset: false },
-  writing:        { research: false, plan: false, write: false, save: false, reset: false },
-  done:           { research: true,  plan: false, write: false, save: true,  reset: true  },
+  idle:           { research: true,  plan: false, write: false, save: false, copy: false, reset: false },
+  researching:    { research: false, plan: false, write: false, save: false, copy: false, reset: false },
+  awaiting_topic: { research: false, plan: true,  write: false, save: false, copy: false, reset: false },
+  planning:       { research: false, plan: false, write: false, save: false, copy: false, reset: false },
+  awaiting_write: { research: false, plan: false, write: true,  save: false, copy: false, reset: false },
+  writing:        { research: false, plan: false, write: false, save: false, copy: false, reset: false },
+  done:           { research: true,  plan: false, write: false, save: true,  copy: true,  reset: true  },
 };
 
 // Which panel lights up at each stage
@@ -46,6 +46,7 @@ function getUi() {
     btnResearch:      $("btn-research"),
     btnPlan:          $("btn-plan"),
     btnWrite:         $("btn-write"),
+    btnCopyContent:   $("btn-copy-content"),
     btnSave:          $("btn-save"),
     btnReset:         $("btn-reset"),
     researcherOutput: $("researcher-output"),
@@ -144,8 +145,9 @@ function setStage(stage) {
   ui.btnResearch.disabled = !cfg.research;
   ui.btnPlan.disabled     = !cfg.plan;
   ui.btnWrite.disabled    = !cfg.write;
-  ui.btnSave.disabled     = !cfg.save;
-  ui.btnReset.disabled    = !cfg.reset;
+  ui.btnCopyContent.disabled = !cfg.copy;
+  ui.btnSave.disabled        = !cfg.save;
+  ui.btnReset.disabled       = !cfg.reset;
 
   // Clear all status badges and active panel glow
   [ui.researcherStatus, ui.plannerStatus, ui.writerStatus].forEach((el) => {
@@ -432,6 +434,18 @@ function wireButtons() {
       onDone:  () => { finaliseOutput(ui.writerOutput); setStage("done"); },
       onError: (msg) => { setStage("awaiting_write"); showError(msg); },
     });
+  });
+
+  // Copy Content
+  ui.btnCopyContent.addEventListener("click", async () => {
+    const text = ui.writerOutput.textContent || "";
+    try {
+      await navigator.clipboard.writeText(text);
+      ui.btnCopyContent.textContent = "Copied!";
+      setTimeout(() => { ui.btnCopyContent.textContent = "Copy Content"; }, 2000);
+    } catch {
+      showError("Could not copy to clipboard");
+    }
   });
 
   // Save to Notion
