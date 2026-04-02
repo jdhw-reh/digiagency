@@ -10,6 +10,8 @@ from datetime import datetime
 import bcrypt
 import redis.asyncio as aioredis
 
+TEAMS = ["content", "social", "video", "seo_audit", "on_page_opt"]
+
 redis_client: aioredis.Redis = aioredis.from_url(
     os.environ.get("REDIS_URL", "redis://localhost:6379"),
     decode_responses=True,
@@ -55,10 +57,11 @@ async def save_user(user_id: str, data: dict) -> None:
 # ---------------------------------------------------------------------------
 
 async def log_activity(team: str, action: str, email: str | None = None) -> None:
+    now_dt = datetime.utcnow()
     event = {
         "team": team,
         "action": action,
-        "ts": datetime.utcnow().isoformat() + "Z",
+        "ts": now_dt.isoformat() + "Z",
     }
     if email:
         event["email"] = email
@@ -67,6 +70,9 @@ async def log_activity(team: str, action: str, email: str | None = None) -> None
     if email:
         await redis_client.lpush(f"user_activity:{email}", json.dumps(event))
         await redis_client.ltrim(f"user_activity:{email}", 0, 19)
+    await redis_client.incr(f"analytics:team:{team}")
+    await redis_client.incr(f"analytics:hour:{now_dt.hour}")
+    await redis_client.incr(f"analytics:weekday:{now_dt.weekday()}")
     for q in _notification_subscribers:
         q.put_nowait(event)
 
@@ -79,6 +85,67 @@ async def get_activity_log(limit: int = 10) -> list[dict]:
 async def get_user_activity(email: str, limit: int = 20) -> list[dict]:
     items = await redis_client.lrange(f"user_activity:{email}", 0, limit - 1)
     return [json.loads(i) for i in items]
+
+
+async def list_accounts_enriched() -> list[dict]:
+    """list_accounts() enriched with last_activity_at, activity_count, setup_complete, is_churn_risk."""
+    accounts = await list_accounts()
+    if not accounts:
+        return []
+
+    pipe = redis_client.pipeline()
+    for a in accounts:
+        email = a["email"]
+        pipe.lindex(f"user_activity:{email}", 0)   # most recent activity item
+        pipe.llen(f"user_activity:{email}")         # total activity count
+        pipe.get(f"account_user_id:{email}")        # linked user_id (set during setup)
+    results = await pipe.execute()
+
+    now = datetime.utcnow()
+    for i, a in enumerate(accounts):
+        raw_latest = results[i * 3]
+        count = int(results[i * 3 + 1] or 0)
+        user_id = results[i * 3 + 2]
+
+        last_activity_at = None
+        if raw_latest:
+            try:
+                last_activity_at = json.loads(raw_latest).get("ts")
+            except Exception:
+                pass
+
+        a["activity_count"] = count
+        a["last_activity_at"] = last_activity_at
+        a["setup_complete"] = bool(user_id)
+
+        is_churn_risk = False
+        if a.get("subscription_status") == "active":
+            if not last_activity_at:
+                is_churn_risk = True
+            else:
+                try:
+                    delta = now - datetime.fromisoformat(last_activity_at.rstrip("Z"))
+                    is_churn_risk = delta.total_seconds() > 7 * 86400
+                except Exception:
+                    pass
+        a["is_churn_risk"] = is_churn_risk
+
+    return accounts
+
+
+async def get_analytics_counters() -> dict:
+    keys = (
+        [f"analytics:team:{t}" for t in TEAMS]
+        + [f"analytics:hour:{h}" for h in range(24)]
+        + [f"analytics:weekday:{d}" for d in range(7)]
+    )
+    values = await redis_client.mget(keys)
+    n = len(TEAMS)
+    return {
+        "team_usage": {t: int(values[i] or 0) for i, t in enumerate(TEAMS)},
+        "activity_by_hour": [int(values[n + h] or 0) for h in range(24)],
+        "activity_by_weekday": [int(values[n + 24 + d] or 0) for d in range(7)],
+    }
 
 
 # ---------------------------------------------------------------------------

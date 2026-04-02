@@ -14,13 +14,22 @@ POST /api/admin/users/revoke          — set subscription_status = cancelled
 
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from state import get_account, get_activity_log, get_user_activity, list_accounts, redis_client, save_account
+from state import (
+    get_account,
+    get_activity_log,
+    get_analytics_counters,
+    get_user_activity,
+    list_accounts,
+    list_accounts_enriched,
+    redis_client,
+    save_account,
+)
 
 router = APIRouter()
 
@@ -98,7 +107,7 @@ async def admin_logout(response: Response, agency_admin: str | None = Cookie(def
 async def admin_list_users(agency_admin: str | None = Cookie(default=None)):
     if not await _is_admin(agency_admin):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
-    accounts = await list_accounts()
+    accounts = await list_accounts_enriched()
     return {"users": accounts}
 
 
@@ -163,6 +172,36 @@ async def admin_user_activity(email: str, agency_admin: str | None = Cookie(defa
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     activity = await get_user_activity(email)
     return {"activity": activity}
+
+
+@router.get("/api/admin/analytics")
+async def admin_analytics(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    accounts = await list_accounts()
+    counters = await get_analytics_counters()
+
+    # Signup trend — last 8 weeks, oldest→newest
+    now = datetime.now(timezone.utc)
+    signup_trend = []
+    for i in range(7, -1, -1):
+        week_start = now - timedelta(weeks=i + 1)
+        week_end = now - timedelta(weeks=i)
+        count = 0
+        for a in accounts:
+            created = a.get("created_at", "")
+            if created:
+                try:
+                    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    if week_start <= dt < week_end:
+                        count += 1
+                except ValueError:
+                    pass
+        label = week_start.strftime("%-d %b")
+        signup_trend.append({"label": label, "count": count})
+
+    return {**counters, "signup_trend": signup_trend}
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +287,33 @@ def _admin_page() -> str:
   .stat-value.gray  { color: #a8a29e; }
   .stat-value.red   { color: #f87171; }
 
+  /* Analytics charts */
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  .analytics-grid-wide { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 40px; }
+  .chart-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 24px; }
+  .chart-empty { color: #555; font-size: 13px; padding: 16px 0; }
+  /* Team usage bars */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { font-size: 12px; color: #888; width: 80px; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #111; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .bar-count { font-size: 12px; color: #666; width: 28px; text-align: right; flex-shrink: 0; }
+  /* Signup trend / weekday bars */
+  .trend-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+  .trend-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
+  .trend-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .trend-bar { width: 100%; min-height: 2px; background: #6366f1; border-radius: 3px 3px 0 0;
+               font-size: 10px; color: #a5b4fc; display: flex; align-items: flex-start;
+               justify-content: center; padding-top: 2px; transition: height 0.4s ease; }
+  .trend-label { font-size: 10px; color: #555; margin-top: 4px; white-space: nowrap; }
+  /* Hour heatmap */
+  .heatmap-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+  .heat-cell { border-radius: 4px; padding: 4px 2px; text-align: center; cursor: default; }
+  .heat-label { font-size: 9px; color: #aaa; display: block; }
+  #chart-weekdays { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+  #chart-hours { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+  .chart-section-label { font-size: 11px; color: #555; margin-bottom: 8px; }
+
   /* Users table */
   .section { margin-bottom: 40px; }
   table { width: 100%; border-collapse: collapse; background: #1a1a1a;
@@ -270,8 +336,16 @@ def _admin_page() -> str:
   .btn-view { background: #1e1e2e; border: 1px solid #3a3a5c; color: #a5b4fc; font-size: 12px;
               padding: 4px 12px; border-radius: 6px; cursor: pointer; }
   .btn-view:hover { background: #2a2a4a; }
-  .last-login { font-size: 13px; color: #aaa; }
-  .last-login.never { color: #555; font-style: italic; }
+  .ts-cell { font-size: 13px; color: #aaa; }
+  .ts-cell.never { color: #555; font-style: italic; }
+  .setup-yes { color: #4ade80; font-size: 14px; }
+  .setup-no  { color: #555;    font-size: 14px; }
+  .count-badge { display: inline-block; background: #1e1e1e; border: 1px solid #333;
+                 border-radius: 20px; font-size: 11px; color: #888; padding: 1px 8px; }
+  .churn-row td:first-child { border-left: 3px solid #f97316; }
+  .churn-badge { display: inline-block; background: #431407; color: #fb923c;
+                 font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px;
+                 margin-left: 6px; vertical-align: middle; }
   .empty { text-align: center; padding: 48px; color: #555; font-size: 15px; }
 
   /* Activity feed */
@@ -340,6 +414,30 @@ def _admin_page() -> str:
   </div>
 </div>
 
+<!-- Analytics -->
+<div class="analytics-grid-wide">
+  <div class="chart-card">
+    <h2>Feature Usage</h2>
+    <div id="chart-teams"><div class="chart-empty">Loading…</div></div>
+  </div>
+  <div class="chart-card">
+    <h2>Signups — Last 8 Weeks</h2>
+    <div class="trend-bars" id="chart-trend"></div>
+  </div>
+</div>
+<div class="analytics-grid">
+  <div class="chart-card">
+    <h2>Activity by Hour of Day</h2>
+    <div class="chart-section-label">All time · UTC</div>
+    <div id="chart-hours"></div>
+  </div>
+  <div class="chart-card">
+    <h2>Activity by Day of Week</h2>
+    <div class="chart-section-label">All time · UTC</div>
+    <div id="chart-weekdays"></div>
+  </div>
+</div>
+
 <!-- Users table -->
 <div class="section">
   <h2>Users</h2>
@@ -348,15 +446,18 @@ def _admin_page() -> str:
       <tr>
         <th>Email</th>
         <th>Status</th>
-        <th>Last Login</th>
+        <th>Setup</th>
         <th>Signed Up</th>
-        <th>Stripe Sub ID</th>
-        <th>Actions</th>
+        <th>Last Login</th>
+        <th>Last Active</th>
+        <th>Activity</th>
+        <th>Manage</th>
       </tr>
     </thead>
     <tbody id="users-body">
-      <tr><td colspan="6" class="empty">Loading…</td></tr>
+      <tr><td colspan="8" class="empty">Loading…</td></tr>
     </tbody>
+
   </table>
 </div>
 
@@ -436,30 +537,38 @@ async function loadUsers() {
     const res = await fetch('/api/admin/users');
     const data = await res.json();
     if (!res.ok) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${escHtml(data.error || res.status)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${escHtml(data.error || res.status)}</td></tr>`;
       return;
     }
     if (!data.users || data.users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No accounts yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No accounts yet.</td></tr>';
       return;
     }
     tbody.innerHTML = data.users.map(u => {
-      const status   = u.subscription_status || 'inactive';
-      const badgeCls = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
-      const signedUp = formatDate(u.created_at);
+      const status    = u.subscription_status || 'inactive';
+      const badgeCls  = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
+      const signedUp  = formatDate(u.created_at);
       const lastLogin = u.last_login_at
-        ? `<span class="last-login">${escHtml(relativeTime(u.last_login_at))}</span>`
-        : '<span class="last-login never">Never</span>';
-      const subId = u.stripe_subscription_id
-        ? `<span class="sub-id">${escHtml(u.stripe_subscription_id)}</span>`
-        : '<span style="color:#444">—</span>';
-      const emailSafe = escHtml(u.email);
-      return `<tr>
-        <td>${emailSafe}</td>
+        ? `<span class="ts-cell">${escHtml(relativeTime(u.last_login_at))}</span>`
+        : '<span class="ts-cell never">Never</span>';
+      const lastActive = u.last_activity_at
+        ? `<span class="ts-cell">${escHtml(relativeTime(u.last_activity_at))}</span>`
+        : '<span class="ts-cell never">Never</span>';
+      const setupHtml  = u.setup_complete
+        ? '<span class="setup-yes" title="API key configured">✓</span>'
+        : '<span class="setup-no"  title="Not set up">✗</span>';
+      const countHtml  = `<span class="count-badge">${u.activity_count || 0}</span>`;
+      const churnHtml  = u.is_churn_risk ? '<span class="churn-badge">At risk</span>' : '';
+      const emailSafe  = escHtml(u.email);
+      const rowCls     = u.is_churn_risk ? 'churn-row' : '';
+      return `<tr class="${rowCls}">
+        <td>${emailSafe}${churnHtml}</td>
         <td><span class="badge ${badgeCls}">${status}</span></td>
-        <td>${lastLogin}</td>
+        <td>${setupHtml}</td>
         <td>${signedUp}</td>
-        <td>${subId}</td>
+        <td>${lastLogin}</td>
+        <td>${lastActive}</td>
+        <td>${countHtml}</td>
         <td>
           <button class="action-btn btn-activate" onclick="activate('${emailSafe}')">Activate</button>
           <button class="action-btn btn-revoke"   onclick="revoke('${emailSafe}')">Revoke</button>
@@ -468,7 +577,7 @@ async function loadUsers() {
       </tr>`;
     }).join('');
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">Failed to load users: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Failed to load users: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -558,10 +667,91 @@ function closeModalOnBackdrop(e) {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+// ---- Analytics ----
+async function loadAnalytics() {
+  try {
+    const res = await fetch('/api/admin/analytics');
+    if (!res.ok) return;
+    const d = await res.json();
+    renderTeamUsage(d.team_usage || {});
+    renderSignupTrend(d.signup_trend || []);
+    renderHourHeatmap(d.activity_by_hour || []);
+    renderWeekdayChart(d.activity_by_weekday || []);
+  } catch(e) {}
+}
+
+const TEAM_LABELS = {
+  content: 'Content', social: 'Social', video: 'Video',
+  seo_audit: 'SEO Audit', on_page_opt: 'On-Page'
+};
+const TEAM_COLORS = {
+  content: '#60a5fa', social: '#c084fc', video: '#34d399',
+  seo_audit: '#fbbf24', on_page_opt: '#e879f9'
+};
+
+function renderTeamUsage(data) {
+  const max = Math.max(...Object.values(data), 1);
+  const total = Object.values(data).reduce((s, v) => s + v, 0);
+  const el = document.getElementById('chart-teams');
+  if (total === 0) { el.innerHTML = '<div class="chart-empty">No activity yet</div>'; return; }
+  el.innerHTML = Object.entries(TEAM_LABELS).map(([key, label]) => {
+    const val = data[key] || 0;
+    const pct = (val / max * 100).toFixed(1);
+    const color = TEAM_COLORS[key] || '#6366f1';
+    return `<div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="bar-count">${val}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderSignupTrend(data) {
+  const max = Math.max(...data.map(d => d.count), 1);
+  const el = document.getElementById('chart-trend');
+  el.innerHTML = data.map(d => {
+    const h = max > 0 ? (d.count / max * 100).toFixed(1) : 0;
+    return `<div class="trend-col">
+      <div class="trend-bar-wrap">
+        <div class="trend-bar" style="height:${h}%" title="${d.count} signups">${d.count > 0 ? d.count : ''}</div>
+      </div>
+      <div class="trend-label">${escHtml(d.label)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHourHeatmap(data) {
+  const max = Math.max(...data, 1);
+  const labels = [...Array(24).keys()].map(h => h === 0 ? '12am' : h < 12 ? h+'am' : h === 12 ? '12pm' : (h-12)+'pm');
+  const el = document.getElementById('chart-hours');
+  el.innerHTML = data.map((v, i) => {
+    const alpha = max > 0 ? (0.08 + (v / max) * 0.9).toFixed(2) : 0.08;
+    return `<div class="heat-cell" style="background:rgba(99,102,241,${alpha})" title="${labels[i]}: ${v} actions">
+      <span class="heat-label">${labels[i]}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderWeekdayChart(data) {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const max = Math.max(...data, 1);
+  const el = document.getElementById('chart-weekdays');
+  el.innerHTML = data.map((v, i) => {
+    const h = max > 0 ? (v / max * 100).toFixed(1) : 0;
+    return `<div class="trend-col">
+      <div class="trend-bar-wrap">
+        <div class="trend-bar" style="height:${h}%;background:#6366f1" title="${days[i]}: ${v} actions">${v > 0 ? v : ''}</div>
+      </div>
+      <div class="trend-label">${days[i]}</div>
+    </div>`;
+  }).join('');
+}
+
 // ---- Init ----
 loadStats();
 loadUsers();
 loadActivity();
+loadAnalytics();
 </script>
 </body>
 </html>"""

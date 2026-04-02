@@ -15,11 +15,11 @@ import asyncio
 import uuid
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from state import get_user, save_user
+from state import get_token_email, get_user, redis_client, save_user
 
 router = APIRouter()
 
@@ -98,7 +98,7 @@ async def _create_database(
 # ---------------------------------------------------------------------------
 
 @router.post("/user")
-async def save_user_route(payload: SaveUserPayload):
+async def save_user_route(payload: SaveUserPayload, agency_token: str | None = Cookie(default=None)):
     """Create or update user credentials in Redis."""
     user_id = payload.user_id.strip() or str(uuid.uuid4())
 
@@ -109,6 +109,12 @@ async def save_user_route(payload: SaveUserPayload):
         "notion_parent_page_id": _extract_page_id(payload.notion_parent_page_id) if payload.notion_parent_page_id else existing.get("notion_parent_page_id", ""),
     })
     await save_user(user_id, existing)
+
+    # Link email → user_id so admin can check setup completion
+    if agency_token:
+        email = await get_token_email(agency_token)
+        if email:
+            await redis_client.set(f"account_user_id:{email}", user_id)
 
     return {
         "user_id": user_id,
