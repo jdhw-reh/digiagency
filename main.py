@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
@@ -22,8 +22,54 @@ from routers.agency import router as agency_router
 from routers.video_team import router as video_router
 from routers.on_page_opt import router as on_page_opt_router
 from routers.setup import router as setup_router
+from routers.auth import router as auth_router
+from routers.admin import router as admin_router
 
 app = FastAPI(title="The Agency")
+
+# ---------------------------------------------------------------------------
+# Auth middleware — protect all /api/* and / routes
+# ---------------------------------------------------------------------------
+
+# Paths that are always public (no subscription check)
+_PUBLIC_PATHS = {"/login", "/static", "/api/auth/register", "/api/auth/login"}
+
+@app.middleware("http")
+async def require_active_subscription(request: Request, call_next):
+    path = request.url.path
+
+    # Always allow: login page, static assets, auth endpoints, admin endpoints, health check
+    if (
+        path == "/login"
+        or path.startswith("/static/")
+        or path.startswith("/api/auth/")
+        or path.startswith("/admin")
+        or path == "/"
+        or path.startswith("/api/admin/")
+    ):
+        return await call_next(request)
+
+    # For all other routes, require a valid token with active subscription
+    from state import get_token_email, get_account
+    token = request.cookies.get("agency_token")
+    if not token:
+        if path.startswith("/api/"):
+            return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return RedirectResponse("/login")
+
+    email = await get_token_email(token)
+    if not email:
+        if path.startswith("/api/"):
+            return JSONResponse({"error": "Session expired"}, status_code=401)
+        return RedirectResponse("/login")
+
+    account = await get_account(email)
+    if not account or account.get("subscription_status") != "active":
+        if path.startswith("/api/"):
+            return JSONResponse({"error": "No active subscription"}, status_code=402)
+        return RedirectResponse("/login")
+
+    return await call_next(request)
 
 # ---------------------------------------------------------------------------
 # Static files + root
@@ -36,6 +82,11 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 @app.get("/")
 async def root():
     return FileResponse(str(static_dir / "index.html"))
+
+
+@app.get("/login")
+async def login_page():
+    return FileResponse(str(static_dir / "login.html"))
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +144,8 @@ async def director_summary():
 # Routers
 # ---------------------------------------------------------------------------
 
+app.include_router(auth_router, prefix="/api/auth")
+app.include_router(admin_router)
 app.include_router(content_router, prefix="/api/content")
 app.include_router(social_router, prefix="/api/social")
 app.include_router(assistant_router, prefix="/api/assistant")

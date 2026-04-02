@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digi Agency — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 24px;
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .brand-mark { font-size: 28px; color: #6366f1; }
+    .brand-name { display: block; font-size: 22px; font-weight: 600; margin-top: 8px; }
+    .brand-sub  { font-size: 14px; color: #666; margin-top: 4px; }
+
+    .card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 16px;
+      padding: 32px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #0f0f0f;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: none;
+      border-radius: 8px;
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab.active {
+      background: #1e1e1e;
+      color: #e5e5e5;
+    }
+
+    .form-group { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 7px;
+      font-weight: 500;
+    }
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 11px 14px;
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      color: #e5e5e5;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #6366f1; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, opacity 0.15s;
+      margin-top: 4px;
+    }
+    .submit-btn:hover { background: #4f52d6; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      color: #f87171;
+      font-size: 13px;
+      margin-top: 14px;
+      min-height: 18px;
+      text-align: center;
+    }
+
+    .pending-msg {
+      margin-top: 20px;
+      padding: 16px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #aaa;
+      text-align: center;
+      display: none;
+    }
+    .pending-msg strong { color: #e5e5e5; display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-mark">✦</span>
+    <span class="brand-name">Digi Agency</span>
+    <span class="brand-sub">Your AI marketing team</span>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-login"    onclick="switchTab('login')">Sign in</button>
+      <button class="tab"        id="tab-register" onclick="switchTab('register')">Create account</button>
+    </div>
+
+    <!-- Login form -->
+    <div id="form-login">
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
+      </div>
+      <button class="submit-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+      <div class="error-msg" id="login-error"></div>
+    </div>
+
+    <!-- Register form -->
+    <div id="form-register" style="display:none">
+      <div class="form-group">
+        <label for="reg-email">Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+      <button class="submit-btn" id="reg-btn" onclick="doRegister()">Create account</button>
+      <div class="error-msg" id="reg-error"></div>
+      <div class="pending-msg" id="pending-msg">
+        <strong>Account created — awaiting activation</strong>
+        Your account has been created. You'll receive access once it's been activated.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/login.js"></script>
+</body>
+</html>

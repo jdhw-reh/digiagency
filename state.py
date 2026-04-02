@@ -4,8 +4,10 @@ Imported by all routers."""
 import asyncio
 import json
 import os
+import secrets
 from datetime import datetime
 
+import bcrypt
 import redis.asyncio as aioredis
 
 redis_client: aioredis.Redis = aioredis.from_url(
@@ -67,6 +69,59 @@ async def log_activity(team: str, action: str) -> None:
 async def get_activity_log(limit: int = 10) -> list[dict]:
     items = await redis_client.lrange("activity_log", 0, limit - 1)
     return [json.loads(i) for i in items]
+
+
+# ---------------------------------------------------------------------------
+# Account management (email/password auth + subscription status)
+# ---------------------------------------------------------------------------
+
+ACCOUNT_TTL = 86400 * 365  # 1 year
+AUTH_TOKEN_TTL = 86400 * 30  # 30 days
+
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+
+async def get_account(email: str) -> dict | None:
+    raw = await redis_client.get(f"account:{email.lower()}")
+    return json.loads(raw) if raw else None
+
+
+async def save_account(email: str, data: dict) -> None:
+    await redis_client.setex(f"account:{email.lower()}", ACCOUNT_TTL, json.dumps(data))
+
+
+async def create_auth_token(email: str) -> str:
+    token = secrets.token_urlsafe(32)
+    await redis_client.setex(f"auth_token:{token}", AUTH_TOKEN_TTL, email.lower())
+    return token
+
+
+async def get_token_email(token: str) -> str | None:
+    return await redis_client.get(f"auth_token:{token}")
+
+
+async def delete_auth_token(token: str) -> None:
+    await redis_client.delete(f"auth_token:{token}")
+
+
+async def list_accounts() -> list[dict]:
+    keys = [k async for k in redis_client.scan_iter("account:*")]
+    if not keys:
+        return []
+    values = await redis_client.mget(keys)
+    accounts = []
+    for v in values:
+        if v:
+            a = json.loads(v)
+            a.pop("password_hash", None)  # never expose hashes
+            accounts.append(a)
+    return sorted(accounts, key=lambda a: a.get("created_at", ""), reverse=True)
 
 
 # ---------------------------------------------------------------------------
