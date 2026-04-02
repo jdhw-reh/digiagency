@@ -24,6 +24,8 @@ from routers.on_page_opt import router as on_page_opt_router
 from routers.setup import router as setup_router
 from routers.auth import router as auth_router
 from routers.admin import router as admin_router
+from routers.checkout import router as checkout_router
+from routers.stripe_webhook import router as stripe_webhook_router
 
 app = FastAPI(title="The Agency")
 
@@ -46,6 +48,8 @@ async def require_active_subscription(request: Request, call_next):
         or path.startswith("/admin")
         or path == "/"
         or path.startswith("/api/admin/")
+        or path.startswith("/api/checkout/")
+        or path.startswith("/api/stripe/")
     ):
         return await call_next(request)
 
@@ -154,3 +158,5 @@ app.include_router(agency_router, prefix="/api/agency")
 app.include_router(video_router, prefix="/api/video")
 app.include_router(on_page_opt_router, prefix="/api/on-page-opt")
 app.include_router(setup_router, prefix="/api/setup")
+app.include_router(checkout_router, prefix="/api/checkout")
+app.include_router(stripe_webhook_router, prefix="/api/stripe")

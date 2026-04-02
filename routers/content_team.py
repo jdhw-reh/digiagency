@@ -4,11 +4,11 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity
+from state import get_session, save_session, get_user, log_activity, get_token_email
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.content import researcher, planner, writer
 from services.notion import create_article_page
@@ -191,7 +191,7 @@ async def stream_write(session_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/save-notion")
-async def save_notion(payload: SessionPayload):
+async def save_notion(payload: SessionPayload, agency_token: str | None = Cookie(default=None)):
     session = await get_session(payload.session_id, "content", _SESSION_DEFAULTS)
     if not session.get("article"):
         return JSONResponse({"error": "No article to save"}, status_code=400)
@@ -205,7 +205,8 @@ async def save_notion(payload: SessionPayload):
     title = session["selected_topic"]["title"]
     url = await create_article_page(title, session["article"], session["selected_topic"], notion_token, database_id)
     session["notion_url"] = url
-    await log_activity("content", f"Saved article: {title}")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("content", f"Saved article: {title}", email=email)
 
     entry = {"title": title, "url": url}
     session["saved_articles"].append(entry)

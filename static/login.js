@@ -75,16 +75,39 @@ async function doRegister() {
       return;
     }
 
-    // Show pending message — admin must activate before they can log in
-    btn.style.display = "none";
-    document.getElementById("pending-msg").style.display = "block";
+    // Account created — now redirect to Stripe Checkout
+    btn.textContent = "Redirecting to payment…";
+    const checkoutRes = await fetch("/api/checkout/session", { method: "POST" });
+    let checkoutData = {};
+    try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
+
+    if (!checkoutRes.ok || !checkoutData.url) {
+      errEl.textContent = checkoutData.error || "Could not start checkout. Please contact support.";
+      return;
+    }
+
+    window.location.href = checkoutData.url;
   } catch {
     errEl.textContent = "Network error — please try again.";
   } finally {
     btn.disabled = false;
-    if (btn.style.display !== "none") btn.textContent = "Create account";
+    if (btn.textContent !== "Redirecting to payment…") btn.textContent = "Create account";
   }
 }
+
+// Handle Stripe return URL params
+document.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get("checkout");
+  if (checkout === "success") {
+    document.getElementById("login-error").style.color = "#4ade80";
+    document.getElementById("login-error").textContent = "Payment successful! Sign in to access your account.";
+  } else if (checkout === "cancelled") {
+    document.getElementById("login-error").textContent = "Checkout cancelled. Register again when you\u2019re ready.";
+  }
+  // Clean URL
+  if (checkout) window.history.replaceState({}, "", "/login");
+});
 
 // Enter key support
 document.addEventListener("DOMContentLoaded", () => {

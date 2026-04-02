@@ -4,11 +4,11 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity
+from state import get_session, save_session, get_user, log_activity, get_token_email
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.on_page_opt import analyser, researcher, copywriter
 from services.agency_log import log_task
@@ -122,7 +122,7 @@ async def reset_session(req: SessionRequest):
 # ---------------------------------------------------------------------------
 
 @router.post("/start-review")
-async def start_review(req: StartReviewRequest):
+async def start_review(req: StartReviewRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
@@ -136,7 +136,8 @@ async def start_review(req: StartReviewRequest):
     sess["notion_url"] = None
     sess["stage"] = "analysing"
     await save_session(req.session_id, sess)
-    await log_activity("on_page_opt", f"Started review: {req.page_type} — {req.target_keyword}")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("on_page_opt", f"Started review: {req.page_type} — {req.target_keyword}", email=email)
     return {"ok": True}
 
 
@@ -185,12 +186,13 @@ async def start_rewrite(req: SessionRequest):
 
 
 @router.get("/stream/rewrite")
-async def stream_rewrite(session_id: str):
+async def stream_rewrite(session_id: str, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
     if sess["stage"] != "rewriting":
         return JSONResponse({"error": "Not in rewriting stage"}, status_code=400)
 
     api_key = await _get_api_key(sess)
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def generate():
         full_text = ""
@@ -209,7 +211,7 @@ async def stream_rewrite(session_id: str):
                 sess["final_copy"] = full_text
                 sess["stage"] = "done"
                 await save_session(session_id, sess)
-                await log_activity("on_page_opt", f"Optimised copy: {sess['page_type']}")
+                await log_activity("on_page_opt", f"Optimised copy: {sess['page_type']}", email=email)
                 user = await get_user(sess.get("user_id", ""))
                 u = user or {}
                 asyncio.ensure_future(log_task(
@@ -232,7 +234,7 @@ async def stream_rewrite(session_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/start-build")
-async def start_build(req: StartBuildRequest):
+async def start_build(req: StartBuildRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
@@ -247,7 +249,8 @@ async def start_build(req: StartBuildRequest):
     sess["notion_url"] = None
     sess["stage"] = "researching"
     await save_session(req.session_id, sess)
-    await log_activity("on_page_opt", f"Started build: {req.page_type}")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("on_page_opt", f"Started build: {req.page_type}", email=email)
     return {"ok": True}
 
 
@@ -300,12 +303,13 @@ async def start_write(req: SessionRequest):
 
 
 @router.get("/stream/copy")
-async def stream_copy(session_id: str):
+async def stream_copy(session_id: str, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(session_id, "on_page_opt", _SESSION_DEFAULTS)
     if sess["stage"] != "writing":
         return JSONResponse({"error": "Not in writing stage"}, status_code=400)
 
     api_key = await _get_api_key(sess)
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def generate():
         full_text = ""
@@ -325,7 +329,7 @@ async def stream_copy(session_id: str):
                 sess["final_copy"] = full_text
                 sess["stage"] = "done"
                 await save_session(session_id, sess)
-                await log_activity("on_page_opt", f"Built page: {sess['page_type']}")
+                await log_activity("on_page_opt", f"Built page: {sess['page_type']}", email=email)
                 user = await get_user(sess.get("user_id", ""))
                 u = user or {}
                 asyncio.ensure_future(log_task(

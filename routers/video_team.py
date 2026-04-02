@@ -4,11 +4,11 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity
+from state import get_session, save_session, get_user, log_activity, get_token_email
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.video import director
 from services.notion_video import save_brief
@@ -94,7 +94,7 @@ async def save_brief_context(payload: BriefPayload):
 # ---------------------------------------------------------------------------
 
 @router.get("/stream/direct")
-async def stream_direct(session_id: str):
+async def stream_direct(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "video", _SESSION_DEFAULTS)
 
     if not session.get("brief"):
@@ -109,6 +109,7 @@ async def stream_direct(session_id: str):
     notion_token, database_id = await _get_notion_creds(session)
     user = await get_user(session.get("user_id", ""))
     u = user or {}
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
         try:
@@ -136,7 +137,7 @@ async def stream_direct(session_id: str):
                                 session["saved_briefs"].append(url)
                                 await save_session(session_id, session)
                                 title = session["concept"].get("title") or "Video brief"
-                                await log_activity("video", f"Saved video brief: {title}")
+                                await log_activity("video", f"Saved video brief: {title}", email=email)
                                 asyncio.ensure_future(log_task(
                                     "Video Team", "Video Brief", title,
                                     notion_token=u.get("notion_token", ""),
@@ -159,7 +160,7 @@ async def stream_direct(session_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/save-notion")
-async def save_to_notion(payload: SessionPayload):
+async def save_to_notion(payload: SessionPayload, agency_token: str | None = Cookie(default=None)):
     session = await get_session(payload.session_id, "video", _SESSION_DEFAULTS)
     if not session.get("shots"):
         return JSONResponse({"error": "No shots to save"}, status_code=400)
@@ -175,7 +176,8 @@ async def save_to_notion(payload: SessionPayload):
 
     session["saved_briefs"].append(url)
     title = session["concept"].get("title") or "Video brief"
-    await log_activity("video", f"Saved video brief: {title}")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("video", f"Saved video brief: {title}", email=email)
     await save_session(payload.session_id, session)
 
     user = await get_user(session.get("user_id", ""))

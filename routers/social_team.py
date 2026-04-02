@@ -4,11 +4,11 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity
+from state import get_session, save_session, get_user, log_activity, get_token_email
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.social import scout, strategist, copywriter
 from services.notion_social import save_posts
@@ -215,7 +215,7 @@ async def stream_write_posts(session_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/save-notion")
-async def save_to_notion(payload: SessionPayload):
+async def save_to_notion(payload: SessionPayload, agency_token: str | None = Cookie(default=None)):
     session = await get_session(payload.session_id, "social", _SESSION_DEFAULTS)
     if not session.get("posts"):
         return JSONResponse({"error": "No posts to save"}, status_code=400)
@@ -231,7 +231,8 @@ async def save_to_notion(payload: SessionPayload):
 
     session["saved_posts"].extend(saved)
     post_count = len(session.get("posts", []))
-    await log_activity("social", f"Saved {post_count} posts to Notion")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("social", f"Saved {post_count} posts to Notion", email=email)
     await save_session(payload.session_id, session)
 
     opp = session.get("selected_opportunity") or {}

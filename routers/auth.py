@@ -91,6 +91,9 @@ async def login(payload: AuthPayload, response: Response):
     if not account or not verify_password(payload.password.strip(), account["password_hash"]):
         return JSONResponse({"error": "Incorrect email or password."}, status_code=401)
 
+    account["last_login_at"] = datetime.now(timezone.utc).isoformat()
+    await save_account(email, account)
+
     token = await create_auth_token(email)
     _set_token_cookie(response, token)
 

@@ -54,20 +54,30 @@ async def save_user(user_id: str, data: dict) -> None:
 # Activity log
 # ---------------------------------------------------------------------------
 
-async def log_activity(team: str, action: str) -> None:
+async def log_activity(team: str, action: str, email: str | None = None) -> None:
     event = {
         "team": team,
         "action": action,
         "ts": datetime.utcnow().isoformat() + "Z",
     }
+    if email:
+        event["email"] = email
     await redis_client.lpush("activity_log", json.dumps(event))
     await redis_client.ltrim("activity_log", 0, 29)
+    if email:
+        await redis_client.lpush(f"user_activity:{email}", json.dumps(event))
+        await redis_client.ltrim(f"user_activity:{email}", 0, 19)
     for q in _notification_subscribers:
         q.put_nowait(event)
 
 
 async def get_activity_log(limit: int = 10) -> list[dict]:
     items = await redis_client.lrange("activity_log", 0, limit - 1)
+    return [json.loads(i) for i in items]
+
+
+async def get_user_activity(email: str, limit: int = 20) -> list[dict]:
+    items = await redis_client.lrange(f"user_activity:{email}", 0, limit - 1)
     return [json.loads(i) for i in items]
 
 

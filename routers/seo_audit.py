@@ -4,11 +4,11 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity
+from state import get_session, save_session, get_user, log_activity, get_token_email
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.seo_audit import auditor, analyser, recommender, implementer
 from services.agency_log import log_task
@@ -82,7 +82,7 @@ async def get_state(session_id: str):
 
 
 @router.post("/start")
-async def start_audit(req: StartAuditRequest):
+async def start_audit(req: StartAuditRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "seo_audit", _SESSION_DEFAULTS)
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Audit already in progress"}, status_code=400)
@@ -96,7 +96,8 @@ async def start_audit(req: StartAuditRequest):
     sess["implementation"] = ""
     sess["notion_url"] = None
     await save_session(req.session_id, sess)
-    await log_activity("seo_audit", f"Started audit: {req.url}")
+    email = await get_token_email(agency_token) if agency_token else None
+    await log_activity("seo_audit", f"Started audit: {req.url}", email=email)
     return {"ok": True}
 
 
@@ -223,12 +224,13 @@ async def start_implement(req: SessionRequest):
 
 
 @router.get("/stream/implementation")
-async def stream_implementation(session_id: str):
+async def stream_implementation(session_id: str, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(session_id, "seo_audit", _SESSION_DEFAULTS)
     if sess["stage"] != "implementing":
         return JSONResponse({"error": "Not in implementing stage"}, status_code=400)
 
     api_key = await _get_api_key(sess)
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def generate():
         full_text = ""
@@ -249,7 +251,7 @@ async def stream_implementation(session_id: str):
                 sess["implementation"] = full_text
                 sess["stage"] = "done"
                 await save_session(session_id, sess)
-                await log_activity("seo_audit", f"Completed audit: {sess['url']}")
+                await log_activity("seo_audit", f"Completed audit: {sess['url']}", email=email)
                 user = await get_user(sess.get("user_id", ""))
                 u = user or {}
                 asyncio.ensure_future(log_task(
