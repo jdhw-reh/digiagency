@@ -48,6 +48,8 @@ const TEAM_LABELS = {
   social: "Social",
   seo_audit: "SEO Audit",
   assistant: "Assistant",
+  video: "Video Director",
+  on_page_opt: "On-Page Optimiser",
 };
 
 function renderActivityFeed(items) {

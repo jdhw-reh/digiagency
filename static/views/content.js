@@ -7,13 +7,13 @@
 const SESSION_KEY = "agency_content_session";
 
 const STAGES = {
-  idle:           { research: true,  plan: false, write: false, save: false, copy: false, reset: false },
-  researching:    { research: false, plan: false, write: false, save: false, copy: false, reset: false },
-  awaiting_topic: { research: false, plan: true,  write: false, save: false, copy: false, reset: false },
-  planning:       { research: false, plan: false, write: false, save: false, copy: false, reset: false },
-  awaiting_write: { research: false, plan: false, write: true,  save: false, copy: false, reset: false },
-  writing:        { research: false, plan: false, write: false, save: false, copy: false, reset: false },
-  done:           { research: true,  plan: false, write: false, save: true,  copy: true,  reset: true  },
+  idle:           { research: true,  plan: false, write: false, save: false, copy: false, download: false, reset: false },
+  researching:    { research: false, plan: false, write: false, save: false, copy: false, download: false, reset: false },
+  awaiting_topic: { research: false, plan: true,  write: false, save: false, copy: false, download: false, reset: true  },
+  planning:       { research: false, plan: false, write: false, save: false, copy: false, download: false, reset: false },
+  awaiting_write: { research: false, plan: false, write: true,  save: false, copy: false, download: false, reset: true  },
+  writing:        { research: false, plan: false, write: false, save: false, copy: false, download: false, reset: false },
+  done:           { research: true,  plan: false, write: false, save: true,  copy: true,  download: true,  reset: true  },
 };
 
 // Which panel lights up at each stage
@@ -47,6 +47,7 @@ function getUi() {
     btnPlan:          $("btn-plan"),
     btnWrite:         $("btn-write"),
     btnCopyContent:   $("btn-copy-content"),
+    btnDownload:      $("btn-download"),
     btnSave:          $("btn-save"),
     btnReset:         $("btn-reset"),
     researcherOutput: $("researcher-output"),
@@ -146,6 +147,7 @@ function setStage(stage) {
   ui.btnPlan.disabled     = !cfg.plan;
   ui.btnWrite.disabled    = !cfg.write;
   ui.btnCopyContent.disabled = !cfg.copy;
+  ui.btnDownload.disabled    = !cfg.download;
   ui.btnSave.disabled        = !cfg.save;
   ui.btnReset.disabled       = !cfg.reset;
 
@@ -446,6 +448,11 @@ function wireButtons() {
     } catch {
       showError("Could not copy to clipboard");
     }
+  });
+
+  // Download .docx
+  ui.btnDownload.addEventListener("click", () => {
+    window.location.href = `/api/content/download?session_id=${SESSION_ID}`;
   });
 
   // Save to Notion

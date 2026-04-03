@@ -36,7 +36,15 @@ async function doLogin() {
     }
 
     if (data.subscription_status !== "active") {
-      errEl.textContent = "Your account is pending activation. Check back shortly.";
+      btn.textContent = "Redirecting to payment…";
+      const checkoutRes = await fetch("/api/checkout/session", { method: "POST" });
+      let checkoutData = {};
+      try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
+      if (!checkoutRes.ok || !checkoutData.url) {
+        errEl.textContent = checkoutData.error || "Your subscription is inactive. Please contact support.";
+        return;
+      }
+      window.location.href = checkoutData.url;
       return;
     }
 

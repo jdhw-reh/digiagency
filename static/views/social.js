@@ -9,9 +9,9 @@ const SOCIAL_SESSION_KEY = "agency_social_session";
 const SOCIAL_STAGES = {
   idle:           { scout: true,  strategise: false, write: false, save: false, copy: false, reset: false },
   scouting:       { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
-  awaiting_idea:  { scout: false, strategise: true,  write: false, save: false, copy: false, reset: false },
+  awaiting_idea:  { scout: false, strategise: true,  write: false, save: false, copy: false, reset: true  },
   strategising:   { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
-  awaiting_copy:  { scout: false, strategise: false, write: true,  save: false, copy: false, reset: false },
+  awaiting_copy:  { scout: false, strategise: false, write: true,  save: false, copy: false, reset: true  },
   writing_posts:  { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
   done:           { scout: true,  strategise: false, write: false, save: true,  copy: true,  reset: true  },
 };

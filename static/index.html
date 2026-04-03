@@ -280,6 +280,7 @@
           <div class="panel-footer writer-footer">
             <span class="word-count" id="word-count"></span>
             <button id="btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
+            <button id="btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
             <button id="btn-save" class="btn-success" disabled>
               ↑ Save to Notion
             </button>
@@ -519,6 +520,11 @@
               rows="2"
               placeholder="Describe the business — e.g. M&amp;A law firm targeting mid-market PE-backed transactions. Services: buy-side, sell-side, management buyouts."
             ></textarea>
+            <div class="competitor-fields">
+              <input id="audit-competitor-1" type="url" class="url-input url-input--sm" placeholder="Competitor 1 (optional)" />
+              <input id="audit-competitor-2" type="url" class="url-input url-input--sm" placeholder="Competitor 2 (optional)" />
+              <input id="audit-competitor-3" type="url" class="url-input url-input--sm" placeholder="Competitor 3 (optional)" />
+            </div>
           </div>
           <button id="audit-btn-start" class="btn-primary btn-violet">
             Run Audit <span class="btn-arrow">→</span>
@@ -647,6 +653,7 @@
             <button id="audit-btn-save-notion" class="btn-ghost" disabled>
               Save to Notion
             </button>
+            <button id="audit-btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
             <button id="audit-btn-copy" class="btn-success" disabled>
               Copy Report
             </button>
@@ -974,6 +981,9 @@
       <div class="ob-footer ob-footer-row">
         <button id="ob-step2-skip" class="btn-ghost">Skip for now</button>
         <button id="ob-step2-save" class="btn-primary">Save &amp; finish</button>
+      </div>
+      <div class="ob-billing-row">
+        <button id="ob-billing-portal-btn" class="ob-billing-link">Manage subscription →</button>
       </div>
     </div>
 

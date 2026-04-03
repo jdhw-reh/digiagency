@@ -7,15 +7,15 @@
 const AUDIT_SESSION_KEY = "agency_seo_audit_session";
 
 const AUDIT_STAGES = {
-  idle:                { start: true,  analyse: false, recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  auditing:            { start: false, analyse: false, recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  awaiting_analyse:    { start: false, analyse: true,  recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  analysing:           { start: false, analyse: false, recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  awaiting_recommend:  { start: false, analyse: false, recommend: true,  implement: false, copy: false, saveNotion: false, reset: false },
-  recommending:        { start: false, analyse: false, recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  awaiting_implement:  { start: false, analyse: false, recommend: false, implement: true,  copy: false, saveNotion: false, reset: false },
-  implementing:        { start: false, analyse: false, recommend: false, implement: false, copy: false, saveNotion: false, reset: false },
-  done:                { start: true,  analyse: false, recommend: false, implement: false, copy: true,  saveNotion: true,  reset: true  },
+  idle:                { start: true,  analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  auditing:            { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  awaiting_analyse:    { start: false, analyse: true,  recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: true  },
+  analysing:           { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  awaiting_recommend:  { start: false, analyse: false, recommend: true,  implement: false, copy: false, download: false, saveNotion: false, reset: true  },
+  recommending:        { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  awaiting_implement:  { start: false, analyse: false, recommend: false, implement: true,  copy: false, download: false, saveNotion: false, reset: true  },
+  implementing:        { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  done:                { start: true,  analyse: false, recommend: false, implement: false, copy: true,  download: true,  saveNotion: true,  reset: true  },
 };
 
 const AUDIT_STAGE_ACTIVE_PANEL = {
@@ -47,11 +47,13 @@ function getAuditUi() {
   return {
     urlInput:           $au("audit-url"),
     contextInput:       $au("audit-context"),
+    competitorInputs:   [$au("audit-competitor-1"), $au("audit-competitor-2"), $au("audit-competitor-3")],
     btnStart:           $au("audit-btn-start"),
     btnAnalyse:         $au("audit-btn-analyse"),
     btnRecommend:       $au("audit-btn-recommend"),
     btnImplement:       $au("audit-btn-implement"),
     btnCopy:            $au("audit-btn-copy"),
+    btnDownload:        $au("audit-btn-download"),
     btnSaveNotion:      $au("audit-btn-save-notion"),
     btnReset:           $au("audit-btn-reset"),
     auditorOutput:      $au("audit-auditor-output"),
@@ -109,6 +111,11 @@ function restoreAuditState(state) {
 
   if (state.url) sau.urlInput.value = state.url;
   if (state.audit_context) sau.contextInput.value = state.audit_context;
+  if (state.competitor_urls) {
+    state.competitor_urls.forEach((u, i) => {
+      if (sau.competitorInputs[i]) sau.competitorInputs[i].value = u;
+    });
+  }
 
   if (state.implementation) {
     clearEmptyState(sau.implementerOutput);
@@ -148,6 +155,7 @@ function setAuditStage(stage) {
   sau.btnRecommend.disabled   = !cfg.recommend;
   sau.btnImplement.disabled   = !cfg.implement;
   sau.btnCopy.disabled        = !cfg.copy;
+  sau.btnDownload.disabled    = !cfg.download;
   sau.btnSaveNotion.disabled  = !cfg.saveNotion;
   sau.btnReset.disabled       = !cfg.reset;
 
@@ -265,11 +273,15 @@ async function startAudit() {
     return;
   }
 
+  const competitor_urls = sau.competitorInputs
+    .map((el) => el.value.trim())
+    .filter(Boolean);
+
   try {
     const res = await fetch("/api/seo-audit/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: AUDIT_SESSION_ID, url, context }),
+      body: JSON.stringify({ session_id: AUDIT_SESSION_ID, url, context, competitor_urls }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -588,6 +600,7 @@ async function resetAudit() {
 
   sau.urlInput.value = "";
   sau.contextInput.value = "";
+  sau.competitorInputs.forEach((el) => { el.value = ""; });
 
   sau.scoreCard.style.display = "none";
   sau.scoreBadge.textContent = "–";
@@ -614,6 +627,9 @@ function wireAuditButtons() {
   sau.btnRecommend.addEventListener("click", startRecommend);
   sau.btnImplement.addEventListener("click", startImplement);
   sau.btnCopy.addEventListener("click", copyReport);
+  sau.btnDownload.addEventListener("click", () => {
+    window.location.href = `/api/seo-audit/download?session_id=${AUDIT_SESSION_ID}`;
+  });
   sau.btnSaveNotion.addEventListener("click", saveToNotion);
   sau.btnReset.addEventListener("click", resetAudit);
 }

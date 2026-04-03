@@ -1,11 +1,13 @@
 """Content Team router — all routes live under /api/content/"""
 
 import asyncio
+import io
 import os
 import uuid
 
+from docx import Document
 from fastapi import APIRouter, Cookie
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, log_activity, get_token_email
@@ -221,6 +223,38 @@ async def save_notion(payload: SessionPayload, agency_token: str | None = Cookie
     ))
 
     return {"url": url, "title": title}
+
+
+# ---------------------------------------------------------------------------
+# Download as .docx
+# ---------------------------------------------------------------------------
+
+@router.get("/download")
+async def download_article(session_id: str):
+    session = await get_session(session_id, "content", _SESSION_DEFAULTS)
+    article = session.get("article", "")
+    if not article:
+        return JSONResponse({"error": "No article to download"}, status_code=400)
+
+    title = (session.get("selected_topic") or {}).get("title", "Article")
+
+    doc = Document()
+    doc.add_heading(title, level=1)
+    for line in article.splitlines():
+        doc.add_paragraph(line)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    safe_title = "".join(c if c.isalnum() or c in " -_" else "_" for c in title)[:60]
+    filename = f"{safe_title}.docx"
+
+    return Response(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------

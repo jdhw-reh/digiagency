@@ -20,7 +20,7 @@ You are part of Digi Agency — an AI marketing platform. Never refer to yoursel
 RECOMMENDER_PROMPT = """Based on this SEO audit and analysis for {url}:
 
 Business context: {context}
-
+{competitor_section}
 Audit data summary:
 {audit_data}
 
@@ -39,18 +39,24 @@ Order them from highest-impact to lowest. Be brutally specific — name the exac
 pages, or content pieces where relevant. No filler."""
 
 
-async def run(url: str, context: str, audit_data: dict, analysis: str, api_key: str = ""):
+async def run(url: str, context: str, audit_data: dict, analysis: str, api_key: str = "", competitor_urls: list | None = None):
     """Stream the recommendations. Yields text chunks then a done event."""
 
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
     import json as _json
     audit_str = _json.dumps(audit_data, indent=2) if audit_data else ""
+    competitors = [u for u in (competitor_urls or []) if u]
+    competitor_section = (
+        f"\nCompetitor domains to benchmark against: {', '.join(competitors)}\n"
+        if competitors else ""
+    )
     prompt = RECOMMENDER_PROMPT.format(
         url=url,
         context=context,
         audit_data=audit_str,
         analysis=analysis,
+        competitor_section=competitor_section,
     )
 
     result_queue: queue.Queue = queue.Queue()

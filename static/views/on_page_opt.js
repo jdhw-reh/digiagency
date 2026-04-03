@@ -12,10 +12,10 @@ const OPT_SESSION_KEY = "agency_on_page_opt_session";
 const OPT_STAGES = {
   idle:              { startReview: true,  startBuild: true,  nextStep: false, copy: false, saveNotion: false, reset: false },
   analysing:         { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
-  awaiting_rewrite:  { startReview: false, startBuild: false, nextStep: true,  copy: false, saveNotion: false, reset: false },
+  awaiting_rewrite:  { startReview: false, startBuild: false, nextStep: true,  copy: false, saveNotion: false, reset: true  },
   rewriting:         { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
   researching:       { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
-  awaiting_write:    { startReview: false, startBuild: false, nextStep: true,  copy: false, saveNotion: false, reset: false },
+  awaiting_write:    { startReview: false, startBuild: false, nextStep: true,  copy: false, saveNotion: false, reset: true  },
   writing:           { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
   done:              { startReview: true,  startBuild: true,  nextStep: false, copy: true,  saveNotion: true,  reset: true  },
 };

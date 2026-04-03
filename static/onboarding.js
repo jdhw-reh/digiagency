@@ -262,6 +262,26 @@ function handleSkip() {
   updateSettingsIndicator();
 }
 
+async function handleBillingPortal() {
+  const btn = document.getElementById("ob-billing-portal-btn");
+  btn.textContent = "Loading…";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/checkout/portal", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || !data.url) {
+      alert(data.error || "Could not open billing portal.");
+      return;
+    }
+    window.location.href = data.url;
+  } catch {
+    alert("Network error — please try again.");
+  } finally {
+    btn.textContent = "Manage subscription →";
+    btn.disabled = false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Settings indicator (small dot on the gear if not configured)
 // ---------------------------------------------------------------------------
@@ -291,6 +311,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (step2Btn) step2Btn.addEventListener("click", handleStep2Save);
   if (skipBtn)  skipBtn.addEventListener("click",  handleSkip);
   if (provBtn)  provBtn.addEventListener("click",  handleProvision);
+
+  const billingBtn = document.getElementById("ob-billing-portal-btn");
+  if (billingBtn) billingBtn.addEventListener("click", handleBillingPortal);
 
   // Settings gear button in sidebar
   const settingsBtn = document.getElementById("btn-settings");

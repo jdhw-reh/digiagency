@@ -1,11 +1,13 @@
 """SEO Audit Team router — all routes live under /api/seo-audit/"""
 
 import asyncio
+import io
 import os
 import uuid
 
+from docx import Document
 from fastapi import APIRouter, Cookie
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, log_activity, get_token_email
@@ -20,6 +22,7 @@ _SESSION_DEFAULTS = {
     "stage": "idle",
     "url": "",
     "audit_context": "",
+    "competitor_urls": [],
     "audit_data": {},
     "audit_text": "",
     "analysis": "",
@@ -57,6 +60,7 @@ class StartAuditRequest(BaseModel):
     session_id: str
     url: str
     context: str
+    competitor_urls: list[str] = []
 
 
 class SessionRequest(BaseModel):
@@ -88,6 +92,7 @@ async def start_audit(req: StartAuditRequest, agency_token: str | None = Cookie(
         return JSONResponse({"error": "Audit already in progress"}, status_code=400)
     sess["url"] = req.url
     sess["audit_context"] = req.context
+    sess["competitor_urls"] = [u.strip() for u in req.competitor_urls if u.strip()]
     sess["stage"] = "auditing"
     sess["audit_data"] = {}
     sess["audit_text"] = ""
@@ -154,7 +159,8 @@ async def stream_analysis(session_id: str):
     async def generate():
         full_text = ""
         async for kind, value in analyser.run(
-            sess["url"], sess["audit_context"], sess["audit_data"], api_key=api_key
+            sess["url"], sess["audit_context"], sess["audit_data"],
+            api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
         ):
             if kind == "chunk":
                 full_text += value
@@ -194,7 +200,8 @@ async def stream_recommendations(session_id: str):
     async def generate():
         full_text = ""
         async for kind, value in recommender.run(
-            sess["url"], sess["audit_context"], sess["audit_data"], sess["analysis"], api_key=api_key
+            sess["url"], sess["audit_context"], sess["audit_data"], sess["analysis"],
+            api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
         ):
             if kind == "chunk":
                 full_text += value
@@ -306,12 +313,49 @@ async def save_to_notion(req: SessionRequest):
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+@router.get("/download")
+async def download_report(session_id: str):
+    sess = await get_session(session_id, "seo_audit", _SESSION_DEFAULTS)
+    if sess["stage"] != "done":
+        return JSONResponse({"error": "Audit not complete"}, status_code=400)
+
+    url = sess.get("url", "Unknown URL")
+    doc = Document()
+    doc.add_heading(f"SEO Audit Report — {url}", level=1)
+
+    sections = [
+        ("Audit Findings", sess.get("audit_text", "")),
+        ("Analysis", sess.get("analysis", "")),
+        ("Recommendations", sess.get("recommendations", "")),
+        ("Implementation Guide", sess.get("implementation", "")),
+    ]
+    for heading, text in sections:
+        if text:
+            doc.add_heading(heading, level=2)
+            for line in text.splitlines():
+                doc.add_paragraph(line)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    safe_url = "".join(c if c.isalnum() or c in "-_." else "_" for c in url.replace("https://", "").replace("http://", ""))[:50]
+    filename = f"SEO_Audit_{safe_url}.docx"
+
+    return Response(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/reset")
 async def reset_audit(req: SessionRequest):
     sess = await get_session(req.session_id, "seo_audit", _SESSION_DEFAULTS)
     sess.update({
         "url": "",
         "audit_context": "",
+        "competitor_urls": [],
         "stage": "idle",
         "audit_data": {},
         "audit_text": "",

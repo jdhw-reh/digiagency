@@ -53,3 +53,31 @@ async def create_checkout_session(agency_token: str | None = Cookie(default=None
     )
 
     return {"url": session.url}
+
+
+@router.post("/portal")
+async def create_portal_session(agency_token: str | None = Cookie(default=None)):
+    if not agency_token:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    email = await get_token_email(agency_token)
+    if not email:
+        return JSONResponse({"error": "Session expired"}, status_code=401)
+
+    account = await get_account(email)
+    if not account:
+        return JSONResponse({"error": "Account not found"}, status_code=404)
+
+    customer_id = account.get("stripe_customer_id")
+    if not customer_id:
+        return JSONResponse({"error": "No billing record found for this account."}, status_code=404)
+
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+    app_url = os.environ.get("APP_URL", _DEFAULT_APP_URL).rstrip("/")
+
+    portal = stripe.billing_portal.Session.create(
+        customer=customer_id,
+        return_url=f"{app_url}/",
+    )
+
+    return {"url": portal.url}

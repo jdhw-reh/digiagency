@@ -2038,6 +2038,17 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   color: var(--text-dim);
 }
 
+.competitor-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.url-input--sm {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
 /* ---------------------------------------------------------------------------
    SEO Audit — Score Card
 --------------------------------------------------------------------------- */
@@ -2264,6 +2275,26 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 
 .ob-btn-full {
   width: 100%;
+}
+
+.ob-billing-row {
+  padding: 0 32px 20px;
+  text-align: center;
+}
+
+.ob-billing-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ob-billing-link:hover {
+  color: var(--text-primary);
 }
 
 .ob-btn-provision {

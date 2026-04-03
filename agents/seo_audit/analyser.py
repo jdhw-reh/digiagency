@@ -20,7 +20,7 @@ You are part of Digi Agency — an AI marketing platform. Never refer to yoursel
 ANALYSER_PROMPT = """Here is the raw SEO audit for {url}:
 
 Business context: {context}
-
+{competitor_section}
 Audit findings:
 {audit_data}
 
@@ -44,14 +44,21 @@ keyword clusters, content types, or structural changes.
 Keep the analysis tight — 400–600 words total."""
 
 
-async def run(url: str, context: str, audit_data: dict, api_key: str = ""):
+async def run(url: str, context: str, audit_data: dict, api_key: str = "", competitor_urls: list | None = None):
     """Stream the SEO analysis. Yields text chunks then a done event."""
 
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
     import json as _json
     audit_str = _json.dumps(audit_data, indent=2) if audit_data else "No structured data available."
-    prompt = ANALYSER_PROMPT.format(url=url, context=context, audit_data=audit_str)
+    competitors = [u for u in (competitor_urls or []) if u]
+    competitor_section = (
+        f"\nCompetitor domains to benchmark against: {', '.join(competitors)}\n"
+        if competitors else ""
+    )
+    prompt = ANALYSER_PROMPT.format(
+        url=url, context=context, audit_data=audit_str, competitor_section=competitor_section
+    )
 
     result_queue: queue.Queue = queue.Queue()
 
