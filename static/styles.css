@@ -2618,3 +2618,146 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   opacity: 0.7;
 }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #2a6aaa; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+/* Hamburger hidden at all non-mobile widths */
+.sidebar-toggle { display: none; }
+
+/* ---- Tablet (768px) ---- */
+@media (max-width: 768px) {
+  :root { --sidebar-width: 160px; }
+  .sidebar-brand .brand-name { font-size: 14px; }
+  .nav-group-label { display: none; }
+}
+
+/* ---- Mobile (480px) ---- */
+@media (max-width: 480px) {
+  /* Sidebar: slide off-screen by default */
+  :root { --sidebar-width: 240px; }
+
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100%;
+    z-index: 500;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+  }
+
+  #sidebar.sidebar--open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+  }
+
+  /* Overlay scrim (element created in JS) */
+  #sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 499;
+  }
+
+  #sidebar-overlay.overlay--visible { display: block; }
+
+  [data-theme="dark"] #sidebar-overlay { background: rgba(0,0,0,0.65); }
+
+  /* Hamburger button */
+  .sidebar-toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    position: fixed;
+    top: 12px; left: 12px;
+    z-index: 501;
+    width: 40px;
+    height: 40px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 8px;
+  }
+
+  .sidebar-toggle span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--text-muted);
+    border-radius: 2px;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+
+  .sidebar-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+  .sidebar-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .sidebar-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* app-main fills full width (sidebar is now fixed, out of flex flow) */
+  #app-main { width: 100%; }
+
+  /* Active view: allow vertical scrolling */
+  .view--visible { overflow-y: auto; }
+
+  /* View header: left padding clears the hamburger button */
+  .view-header { padding-left: 60px; }
+
+  /* Home view: reduce padding */
+  #view-home { padding: 16px; }
+
+  /* Home heading */
+  .director-bar span { font-size: 20px; }
+  .director-bar { margin-bottom: 20px; }
+
+  /* Home grid: single column */
+  .home-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Quick-launch row: horizontal scroll (chip pattern) */
+  .quick-launches {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .quick-launches::-webkit-scrollbar { display: none; }
+  .launch-btn {
+    flex-shrink: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Panel grid: single column */
+  .panel-grid,
+  .panel-grid--2col {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* Panel: reasonable height on mobile */
+  .panel { max-height: 420px; }
+
+  /* Nav touch targets */
+  .nav-link,
+  .nav-settings-btn,
+  .theme-toggle,
+  .nav-support-btn {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}

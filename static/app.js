@@ -462,6 +462,42 @@ ui.btnReset.addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mobile sidebar toggle
+// ---------------------------------------------------------------------------
+
+(function () {
+  const toggle = document.getElementById('sidebar-toggle');
+  const sidebar = document.getElementById('sidebar');
+  if (!toggle || !sidebar) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'sidebar-overlay';
+  document.body.appendChild(overlay);
+
+  function open() {
+    sidebar.classList.add('sidebar--open');
+    overlay.classList.add('overlay--visible');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close navigation');
+  }
+
+  function close() {
+    sidebar.classList.remove('sidebar--open');
+    overlay.classList.remove('overlay--visible');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open navigation');
+  }
+
+  toggle.addEventListener('click', () =>
+    sidebar.classList.contains('sidebar--open') ? close() : open()
+  );
+  overlay.addEventListener('click', close);
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest('.nav-link')) close();
+  });
+})();
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
