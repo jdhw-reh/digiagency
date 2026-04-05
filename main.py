@@ -26,6 +26,7 @@ from routers.auth import router as auth_router
 from routers.admin import router as admin_router
 from routers.checkout import router as checkout_router
 from routers.stripe_webhook import router as stripe_webhook_router
+from routers.support import router as support_router
 
 app = FastAPI(title="The Agency")
 
@@ -160,3 +161,4 @@ app.include_router(on_page_opt_router, prefix="/api/on-page-opt")
 app.include_router(setup_router, prefix="/api/setup")
 app.include_router(checkout_router, prefix="/api/checkout")
 app.include_router(stripe_webhook_router, prefix="/api/stripe")
+app.include_router(support_router, prefix="/api/support")

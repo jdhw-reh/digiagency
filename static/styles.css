@@ -2467,4 +2467,154 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 [data-theme="dark"] ::-webkit-scrollbar { width: 6px; height: 6px; }
 [data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #1a5a9a; border-radius: 3px; }
+
+/* ============================================================
+   Contact Support Modal
+   ============================================================ */
+
+.support-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.support-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: 14px;
+  padding: 28px 30px 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.support-modal h2 {
+  font-size: 1.1rem;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.support-modal h2 svg {
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.support-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.support-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.support-field input,
+.support-field select,
+.support-field textarea {
+  background: var(--bg-input, var(--bg-panel));
+  border: 1px solid var(--border-mid);
+  border-radius: 7px;
+  padding: 9px 11px;
+  font-size: 0.875rem;
+  color: var(--text-body);
+  font-family: inherit;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.support-field input:focus,
+.support-field select:focus,
+.support-field textarea:focus {
+  outline: none;
+  border-color: var(--border-accent, #6366f1);
+}
+
+.support-field textarea {
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.55;
+}
+
+.support-field select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.support-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.support-msg {
+  font-size: 0.85rem;
+  padding: 9px 12px;
+  border-radius: 7px;
+  display: none;
+}
+
+.support-msg.success {
+  display: block;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.support-msg.error {
+  display: block;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Support button in sidebar (same shape as nav-settings-btn) */
+.nav-support-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nav-support-btn:hover {
+  color: var(--text-body);
+  background: var(--bg-hover);
+}
+
+.nav-support-btn svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #2a6aaa; }
