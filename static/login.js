@@ -48,7 +48,7 @@ async function doLogin() {
       return;
     }
 
-    window.location.href = "/";
+    window.location.href = "/app";
   } catch {
     errEl.textContent = "Network error — please try again.";
   } finally {

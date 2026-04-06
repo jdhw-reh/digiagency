@@ -99,8 +99,13 @@ async def root(request: Request):
         if email:
             account = await get_account(email)
             if account and account.get("subscription_status") == "active":
-                return FileResponse(str(static_dir / "index.html"))
+                return RedirectResponse("/app")
     return FileResponse(str(static_dir / "landing.html"))
+
+
+@app.get("/app")
+async def app_page():
+    return FileResponse(str(static_dir / "index.html"))
 
 
 @app.get("/login")
