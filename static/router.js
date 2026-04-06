@@ -5,7 +5,7 @@
 // Navigates between #/home, #/content, #/social, #/assistant
 // ---------------------------------------------------------------------------
 
-const VIEWS = ["home", "content", "social", "assistant", "seo-audit", "video", "on-page-opt"];
+const VIEWS = ["home", "content", "social", "assistant", "seo-audit", "video", "on-page-opt", "history"];
 
 function navigate(hash) {
   const raw = hash.replace(/^#\/?/, "").toLowerCase();

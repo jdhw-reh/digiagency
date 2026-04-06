@@ -61,6 +61,12 @@
       </a>
     </div>
 
+    <div class="nav-group">
+      <a class="nav-link" href="#/history" data-view="history">
+        History
+      </a>
+    </div>
+
     <div class="sidebar-footer">
       <button id="theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode">
         <span class="theme-icon" id="theme-icon">🌙</span>
@@ -234,7 +240,7 @@
             </div>
             <span class="panel-status" id="researcher-status"></span>
           </div>
-          <div class="stream-output activity-log" id="researcher-output" aria-label="Research activity">
+          <div class="stream-output activity-log markdown-output" id="researcher-output" aria-label="Research activity">
             <div class="empty-state">Waiting to research topics…</div>
           </div>
           <div id="topic-list" class="topic-list" aria-label="Topic options"></div>
@@ -257,7 +263,7 @@
             </div>
             <span class="panel-status" id="planner-status"></span>
           </div>
-          <div class="stream-output prose-output" id="planner-output" aria-label="Content brief">
+          <div class="stream-output prose-output markdown-output" id="planner-output" aria-label="Content brief">
             <div class="empty-state">Waiting for a topic to be selected…</div>
           </div>
           <div class="panel-footer">
@@ -279,7 +285,7 @@
             </div>
             <span class="panel-status" id="writer-status"></span>
           </div>
-          <div class="stream-output prose-output article-output" id="writer-output" aria-label="Article content">
+          <div class="stream-output prose-output article-output markdown-output" id="writer-output" aria-label="Article content">
             <div class="empty-state">Waiting for a content brief…</div>
           </div>
           <div class="panel-footer writer-footer">
@@ -376,7 +382,7 @@
             </div>
             <span class="panel-status" id="social-scout-status"></span>
           </div>
-          <div class="stream-output activity-log" id="social-scout-output" aria-label="Scout activity">
+          <div class="stream-output activity-log markdown-output" id="social-scout-output" aria-label="Scout activity">
             <div class="empty-state">Waiting to scout trends…</div>
           </div>
           <div id="social-opportunity-list" class="topic-list" aria-label="Opportunity options"></div>
@@ -399,7 +405,7 @@
             </div>
             <span class="panel-status" id="social-strategist-status"></span>
           </div>
-          <div class="stream-output prose-output" id="social-strategist-output" aria-label="Content calendar">
+          <div class="stream-output prose-output markdown-output" id="social-strategist-output" aria-label="Content calendar">
             <div class="empty-state">Waiting for an opportunity to be selected…</div>
           </div>
           <div class="panel-footer">
@@ -421,7 +427,7 @@
             </div>
             <span class="panel-status" id="social-copywriter-status"></span>
           </div>
-          <div class="stream-output activity-log" id="social-copywriter-stream" aria-label="Writing stream">
+          <div class="stream-output activity-log markdown-output" id="social-copywriter-stream" aria-label="Writing stream">
             <div class="empty-state">Waiting for a content calendar…</div>
           </div>
           <div id="social-posts-container" class="posts-container"></div>
@@ -585,7 +591,7 @@
               <div class="score-details" id="audit-score-details"></div>
             </div>
           </div>
-          <div class="stream-output activity-log" id="audit-auditor-output" aria-label="Audit output">
+          <div class="stream-output activity-log markdown-output" id="audit-auditor-output" aria-label="Audit output">
             <div class="empty-state">Waiting to audit…</div>
           </div>
           <div class="panel-footer">
@@ -607,7 +613,7 @@
             </div>
             <span class="panel-status" id="audit-analyser-status"></span>
           </div>
-          <div class="stream-output prose-output" id="audit-analyser-output" aria-label="Analysis">
+          <div class="stream-output prose-output markdown-output" id="audit-analyser-output" aria-label="Analysis">
             <div class="empty-state">Waiting for audit to complete…</div>
           </div>
           <div class="panel-footer">
@@ -629,7 +635,7 @@
             </div>
             <span class="panel-status" id="audit-recommender-status"></span>
           </div>
-          <div class="stream-output prose-output" id="audit-recommender-output" aria-label="Recommendations">
+          <div class="stream-output prose-output markdown-output" id="audit-recommender-output" aria-label="Recommendations">
             <div class="empty-state">Waiting for analysis to complete…</div>
           </div>
           <div class="panel-footer">
@@ -651,7 +657,7 @@
             </div>
             <span class="panel-status" id="audit-implementer-status"></span>
           </div>
-          <div class="stream-output prose-output" id="audit-implementer-output" aria-label="Implementation guide">
+          <div class="stream-output prose-output markdown-output" id="audit-implementer-output" aria-label="Implementation guide">
             <div class="empty-state">Waiting for recommendations to complete…</div>
           </div>
           <div class="panel-footer writer-footer">
@@ -863,7 +869,7 @@
             </div>
             <span class="panel-status" id="opt-panel-a-status"></span>
           </div>
-          <div class="stream-output activity-log" id="opt-panel-a-output" aria-label="Analysis output">
+          <div class="stream-output activity-log markdown-output" id="opt-panel-a-output" aria-label="Analysis output">
             <div class="empty-state">Waiting to start…</div>
           </div>
           <!-- Keyword card (shown in Build mode after research) -->
@@ -887,7 +893,7 @@
             </div>
             <span class="panel-status" id="opt-panel-b-status"></span>
           </div>
-          <div class="stream-output prose-output" id="opt-panel-b-output" aria-label="Copywriter output">
+          <div class="stream-output prose-output markdown-output" id="opt-panel-b-output" aria-label="Copywriter output">
             <div class="empty-state">Waiting for step 1 to complete…</div>
           </div>
           <div class="panel-footer writer-footer">
@@ -903,6 +909,21 @@
 
       </main>
 
+    </div>
+
+    <!-- ===== HISTORY VIEW ===== -->
+    <div id="view-history" class="view">
+      <header class="view-header">
+        <div class="view-header-top">
+          <div class="view-title">
+            <h1>History</h1>
+          </div>
+        </div>
+        <p style="color:var(--text-muted);font-size:.875rem;margin:0">Your last 20 completed outputs. Click any item to copy the full content to clipboard.</p>
+      </header>
+      <div id="history-list" class="history-list">
+        <div class="empty-state">Loading…</div>
+      </div>
     </div>
 
   </div><!-- #app-main -->
@@ -995,8 +1016,19 @@
   </div><!-- #onboarding-modal -->
 
   <!-- ===== ERROR TOAST (global) ===== -->
+  <!-- Notion not-configured prompt -->
+  <div id="notion-config-prompt" class="notion-config-prompt" role="dialog" aria-label="Configure Notion">
+    <p class="notion-prompt__msg">Notion saving isn't configured for your account yet. Would you like to set it up?</p>
+    <div class="notion-prompt__actions">
+      <button class="notion-prompt__yes">Open Settings</button>
+      <button class="notion-prompt__no">Not now</button>
+    </div>
+  </div>
+
   <div id="error-toast" class="error-toast" role="alert" aria-live="assertive"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="/static/utils.js"></script>
   <script src="/static/theme.js"></script>
   <script src="/static/auth-interceptor.js"></script>
   <script src="/static/support.js"></script>
@@ -1009,6 +1041,7 @@
   <script src="/static/views/seo_audit.js"></script>
   <script src="/static/views/video.js"></script>
   <script src="/static/views/on_page_opt.js"></script>
+  <script src="/static/views/history.js"></script>
 
 </body>
 </html>

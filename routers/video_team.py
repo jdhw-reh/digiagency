@@ -8,7 +8,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email
+from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.video import director
 from services.notion_video import save_brief
@@ -110,6 +110,7 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
     user = await get_user(session.get("user_id", ""))
     u = user or {}
     email = await get_token_email(agency_token) if agency_token else None
+    text_parts: list[str] = []
 
     async def event_generator():
         try:
@@ -120,6 +121,7 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
                 api_key=api_key,
             ):
                 if isinstance(chunk, str):
+                    text_parts.append(chunk)
                     yield sse_chunk(chunk)
                 elif isinstance(chunk, dict):
                     if chunk.get("type") == "shots":
@@ -150,6 +152,9 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
             if session["stage"] == "directing":
                 session["stage"] = "idle"
                 await save_session(session_id, session)
+            if email and session.get("stage") == "done" and text_parts:
+                title = session["concept"].get("title") or "Video brief"
+                await log_history_item(email, "Video Director", title, "".join(text_parts))
             yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

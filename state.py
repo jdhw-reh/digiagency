@@ -218,6 +218,31 @@ async def list_accounts() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Content history (per-user log of completed tool outputs)
+# ---------------------------------------------------------------------------
+
+HISTORY_TTL = 86400 * 90  # 90 days
+
+
+async def log_history_item(email: str, tool: str, title: str, output: str) -> None:
+    entry = {
+        "tool": tool,
+        "title": title,
+        "output": output,
+        "ts": datetime.utcnow().isoformat() + "Z",
+    }
+    key = f"history:{email.lower()}"
+    await redis_client.lpush(key, json.dumps(entry))
+    await redis_client.ltrim(key, 0, 19)
+    await redis_client.expire(key, HISTORY_TTL)
+
+
+async def get_history(email: str, limit: int = 20) -> list[dict]:
+    items = await redis_client.lrange(f"history:{email.lower()}", 0, limit - 1)
+    return [json.loads(i) for i in items]
+
+
+# ---------------------------------------------------------------------------
 # SSE notification broadcast (in-memory — asyncio.Queue can't be serialised)
 # ---------------------------------------------------------------------------
 

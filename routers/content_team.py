@@ -10,7 +10,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email
+from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.content import researcher, planner, writer
 from services.notion import create_article_page
@@ -164,7 +164,7 @@ async def stream_plan(session_id: str):
 
 
 @router.get("/stream/write")
-async def stream_write(session_id: str):
+async def stream_write(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "content", _SESSION_DEFAULTS)
     if not session.get("brief"):
         return JSONResponse({"error": "No content brief available"}, status_code=400)
@@ -173,6 +173,7 @@ async def stream_write(session_id: str):
     await save_session(session_id, session)
     article_parts: list[str] = []
     api_key = await _get_api_key(session)
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
         async for chunk in writer.run(
@@ -183,6 +184,9 @@ async def stream_write(session_id: str):
         session["article"] = "".join(article_parts)
         session["stage"] = "done"
         await save_session(session_id, session)
+        if email and session["article"]:
+            title = (session.get("selected_topic") or {}).get("title", "Article")
+            await log_history_item(email, "Content Team", title, session["article"])
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

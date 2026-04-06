@@ -114,6 +114,21 @@ async def login_page():
 
 
 # ---------------------------------------------------------------------------
+# Content history
+# ---------------------------------------------------------------------------
+
+@app.get("/api/history")
+async def get_history_endpoint(request: Request):
+    from state import get_token_email, get_history
+    token = request.cookies.get("agency_token")
+    email = await get_token_email(token) if token else None
+    if not email:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    items = await get_history(email)
+    return JSONResponse(items)
+
+
+# ---------------------------------------------------------------------------
 # Director summary — powers the home dashboard
 # ---------------------------------------------------------------------------
 

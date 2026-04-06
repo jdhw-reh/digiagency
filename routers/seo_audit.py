@@ -10,7 +10,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email
+from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.seo_audit import auditor, analyser, recommender, implementer
 from services.agency_log import log_task
@@ -266,6 +266,8 @@ async def stream_implementation(session_id: str, agency_token: str | None = Cook
                     notion_token=u.get("notion_token", ""),
                     db_id=u.get("notion_agency_log_db_id", ""),
                 ))
+                if email and full_text:
+                    await log_history_item(email, "SEO Audit", f"Audit: {sess['url']}", full_text)
                 yield sse_done()
             elif kind == "error":
                 sess["stage"] = "awaiting_implement"
@@ -288,6 +290,12 @@ async def save_to_notion(req: SessionRequest):
     u = user or {}
     notion_token = u.get("notion_token", "")
     db_id = u.get("notion_seo_audit_db_id", "")
+
+    if not notion_token or not db_id:
+        return JSONResponse(
+            {"error": "Notion saving isn't configured for your account yet.", "code": "notion_not_configured"},
+            status_code=400,
+        )
 
     try:
         notion_url = await save_audit_report(

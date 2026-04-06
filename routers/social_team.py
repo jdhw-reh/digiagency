@@ -8,7 +8,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email
+from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.social import scout, strategist, copywriter
 from services.notion_social import save_posts
@@ -178,7 +178,7 @@ async def stream_strategise(session_id: str):
 
 
 @router.get("/stream/write-posts")
-async def stream_write_posts(session_id: str):
+async def stream_write_posts(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "social", _SESSION_DEFAULTS)
     if not session.get("calendar"):
         return JSONResponse({"error": "No content calendar available"}, status_code=400)
@@ -187,6 +187,7 @@ async def stream_write_posts(session_id: str):
     await save_session(session_id, session)
     post_text_parts: list[str] = []
     api_key = await _get_api_key(session)
+    email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
         async for chunk in copywriter.run(
@@ -205,6 +206,10 @@ async def stream_write_posts(session_id: str):
                     session["stage"] = "done"
                     await save_session(session_id, session)
                     yield sse_event({"type": "posts", "data": session["posts"]})
+        if email and post_text_parts:
+            opp = session.get("selected_opportunity") or {}
+            title = opp.get("angle") or f"Social posts — {session.get('detected_platform', '')}"
+            await log_history_item(email, "Social Team", title, "".join(post_text_parts))
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

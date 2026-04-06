@@ -8,7 +8,8 @@ from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_activity_log
+from fastapi import Cookie
+from state import get_session, save_session, get_user, get_activity_log, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done
 from agents.assistant import assistant
 
@@ -176,12 +177,13 @@ async def post_message(payload: MessagePayload):
 # ---------------------------------------------------------------------------
 
 @router.get("/stream/response")
-async def stream_response(session_id: str):
+async def stream_response(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "assistant", _SESSION_DEFAULTS)
 
     if session["stage"] != "responding" or not session.get("pending_message"):
         return JSONResponse({"error": "No pending message"}, status_code=400)
 
+    email = await get_token_email(agency_token) if agency_token else None
     user_message = session["pending_message"]
     file_refs = session.pop("pending_files", [])
     session["pending_message"] = ""
@@ -223,6 +225,9 @@ async def stream_response(session_id: str):
                 "role": "model",
                 "content": full_response,
             })
+            if email:
+                title = user_message[:80] + ("…" if len(user_message) > 80 else "")
+                await log_history_item(email, "Assistant", title, full_response)
 
         session["stage"] = "idle"
         await save_session(session_id, session)

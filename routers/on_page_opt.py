@@ -8,7 +8,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email
+from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.on_page_opt import analyser, researcher, copywriter
 from services.agency_log import log_task
@@ -219,6 +219,9 @@ async def stream_rewrite(session_id: str, agency_token: str | None = Cookie(defa
                     notion_token=u.get("notion_token", ""),
                     db_id=u.get("notion_agency_log_db_id", ""),
                 ))
+                if email and full_text:
+                    title = f"Review: {sess['page_type']} — {sess['target_keyword']}"
+                    await log_history_item(email, "On-Page Optimiser", title, full_text)
                 yield sse_done()
             elif kind == "error":
                 sess["stage"] = "awaiting_rewrite"
@@ -337,6 +340,9 @@ async def stream_copy(session_id: str, agency_token: str | None = Cookie(default
                     notion_token=u.get("notion_token", ""),
                     db_id=u.get("notion_agency_log_db_id", ""),
                 ))
+                if email and full_text:
+                    title = f"Build: {sess['page_type']} — {sess['prompt'][:60]}"
+                    await log_history_item(email, "On-Page Optimiser", title, full_text)
                 yield sse_done()
             elif kind == "error":
                 sess["stage"] = "awaiting_write"
@@ -360,6 +366,12 @@ async def save_to_notion(req: SessionRequest):
         return {"notion_url": sess["notion_url"]}
 
     notion_token, db_id = await _get_notion_creds(sess)
+
+    if not notion_token or not db_id:
+        return JSONResponse(
+            {"error": "Notion saving isn't configured for your account yet.", "code": "notion_not_configured"},
+            status_code=400,
+        )
 
     try:
         notion_url = await save_optimiser_report(
