@@ -99,7 +99,7 @@ async def root(request: Request):
         if email:
             account = await get_account(email)
             if account and account.get("subscription_status") == "active":
-                return RedirectResponse("/#/home")
+                return FileResponse(str(static_dir / "index.html"))
     return FileResponse(str(static_dir / "landing.html"))
 
 
