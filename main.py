@@ -85,8 +85,16 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/")
-async def root():
-    return FileResponse(str(static_dir / "index.html"))
+async def root(request: Request):
+    from state import get_token_email, get_account
+    token = request.cookies.get("agency_token")
+    if token:
+        email = await get_token_email(token)
+        if email:
+            account = await get_account(email)
+            if account and account.get("subscription_status") == "active":
+                return RedirectResponse("/#/home")
+    return FileResponse(str(static_dir / "landing.html"))
 
 
 @app.get("/login")

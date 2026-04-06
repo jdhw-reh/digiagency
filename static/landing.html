@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digi Agency — Your AI marketing team</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid #1a1a1a;
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 17px;
+    }
+    .nav-brand .mark { color: #6366f1; font-size: 20px; }
+
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: #999;
+      padding: 8px 18px;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-link:hover { color: #e5e5e5; border-color: #444; }
+
+    /* ── Hero ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 24px 80px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #6366f1;
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 20px;
+      padding: 5px 14px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+      color: #f0f0f0;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: #888;
+      max-width: 520px;
+      margin-bottom: 36px;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #6366f1;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #4f52d6; }
+
+    /* ── Section chrome ── */
+    section { padding: 80px 24px; }
+
+    .section-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(24px, 3vw, 36px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #f0f0f0;
+      margin-bottom: 48px;
+    }
+
+    /* ── Features ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 14px;
+      padding: 24px;
+      transition: border-color 0.15s;
+    }
+    .feature-card:hover { border-color: #333; }
+
+    .feature-icon {
+      font-size: 22px;
+      margin-bottom: 14px;
+      display: block;
+    }
+
+    .feature-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e5e5e5;
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* ── How it works ── */
+    .steps {
+      display: flex;
+      gap: 0;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 28px;
+      left: calc(50% - 1px);
+      width: 0;
+      height: 0;
+    }
+
+    .step {
+      flex: 1;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 32px;
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 14px;
+    }
+    .step:first-child { border-radius: 14px 0 0 14px; border-right: none; }
+    .step:last-child  { border-radius: 0 14px 14px 0; }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #6366f1;
+    }
+
+    .step-content {}
+    .step-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e5e5e5;
+      margin-bottom: 6px;
+    }
+    .step-desc {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* ── Pricing ── */
+    #pricing {
+      background: #0d0d0d;
+    }
+
+    .pricing-card {
+      max-width: 420px;
+      margin: 0 auto;
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .pricing-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #6366f1;
+      margin-bottom: 10px;
+    }
+
+    .pricing-price {
+      font-size: 52px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #f0f0f0;
+      line-height: 1;
+    }
+
+    .pricing-period {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .pricing-features li::before {
+      content: '✓';
+      color: #6366f1;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .btn-cta {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #6366f1;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-cta:hover { background: #4f52d6; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid #1a1a1a;
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+    .footer-brand .mark { color: #6366f1; }
+
+    .footer-link {
+      font-size: 14px;
+      color: #666;
+      transition: color 0.15s;
+    }
+    .footer-link:hover { color: #aaa; }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      nav { padding: 16px 20px; }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        flex-direction: column;
+      }
+      .step:first-child { border-radius: 14px 14px 0 0; border-right: 1px solid #222; border-bottom: none; }
+      .step:last-child  { border-radius: 0 0 14px 14px; }
+
+      footer { flex-direction: column; gap: 12px; text-align: center; }
+    }
+
+    @media (min-width: 721px) and (max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-brand">
+      <span class="mark">✦</span>
+      Digi Agency
+    </div>
+    <a href="/login" class="nav-link">Sign in</a>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <span class="hero-badge">✦ AI-powered marketing</span>
+    <h1>Your AI marketing team, for £49/month</h1>
+    <p>Six specialist tools — content, social, SEO, video, and more — all in one place. No agency fees, no waiting.</p>
+    <a href="/login" class="btn-primary">Get started</a>
+  </div>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="section-inner">
+      <div class="section-label">Tools</div>
+      <div class="section-title">Everything your marketing needs</div>
+      <div class="features-grid">
+
+        <div class="feature-card">
+          <span class="feature-icon">✍️</span>
+          <div class="feature-name">Content Team</div>
+          <div class="feature-desc">Brief, write, and refine long-form content with your AI editor. From blog posts to full campaigns.</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📣</span>
+          <div class="feature-name">Social Team</div>
+          <div class="feature-desc">Generate platform-ready social posts in your brand voice. LinkedIn, Instagram, X — all covered.</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🔍</span>
+          <div class="feature-name">SEO Audit</div>
+          <div class="feature-desc">Crawl any URL and get a prioritised technical SEO report. Fix what's holding your rankings back.</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">💬</span>
+          <div class="feature-name">Assistant</div>
+          <div class="feature-desc">Ask anything about your marketing strategy and get instant, expert-level answers tailored to your business.</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🎬</span>
+          <div class="feature-name">Video Director</div>
+          <div class="feature-desc">Script and brief video content from idea to shot list. Turn concepts into production-ready video plans.</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📈</span>
+          <div class="feature-name">On-Page Optimiser</div>
+          <div class="feature-desc">Rewrite page copy to rank higher for your target keywords. Better content, better positions.</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how-it-works">
+    <div class="section-inner">
+      <div class="section-label">Process</div>
+      <div class="section-title">Up and running in minutes</div>
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Sign up</div>
+            <div class="step-desc">Create your account and activate your £49/month plan. Takes under two minutes.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Start creating</div>
+            <div class="step-desc">All six tools are unlocked immediately. Jump in and start producing work straight away.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing">
+    <div class="section-inner">
+      <div class="section-label" style="text-align:center">Pricing</div>
+      <div class="pricing-card">
+        <div class="pricing-label">Everything included</div>
+        <div class="pricing-price">£49</div>
+        <div class="pricing-period">/month</div>
+        <ul class="pricing-features">
+          <li>Content Team — long-form writing &amp; editing</li>
+          <li>Social Team — multi-platform post generation</li>
+          <li>SEO Audit — technical site analysis</li>
+          <li>Assistant — on-demand marketing strategy</li>
+          <li>Video Director — scripts &amp; shot lists</li>
+          <li>On-Page Optimiser — keyword-driven rewrites</li>
+        </ul>
+        <a href="/login" class="btn-cta">Get started</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-brand">
+      <span class="mark">✦</span>
+      Digi Agency &middot; &copy; 2025
+    </div>
+    <a href="/login" class="footer-link">Sign in</a>
+  </footer>
+
+</body>
+</html>
