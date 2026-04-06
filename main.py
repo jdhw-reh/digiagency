@@ -44,6 +44,7 @@ async def require_active_subscription(request: Request, call_next):
     # Always allow: login page, static assets, auth endpoints, admin endpoints, health check
     if (
         path == "/login"
+        or path == "/health"
         or path.startswith("/static/")
         or path.startswith("/api/auth/")
         or path.startswith("/admin")
@@ -82,6 +83,11 @@ async def require_active_subscription(request: Request, call_next):
 
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/health")
+async def health():
+    return JSONResponse({"ok": True})
 
 
 @app.get("/")
