@@ -2815,8 +2815,8 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   /* View header: left padding clears the hamburger button */
   .view-header { padding-left: 60px; }
 
-  /* Home view: reduce padding */
-  #view-home { padding: 16px; }
+  /* Home view: reduce padding, clear hamburger on the left */
+  #view-home { padding: 16px 16px 16px 60px; }
 
   /* Home heading */
   .director-bar span { font-size: 20px; }

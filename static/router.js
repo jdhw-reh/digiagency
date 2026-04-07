@@ -53,10 +53,13 @@ document.addEventListener("DOMContentLoaded", () => {
     history.replaceState(null, "", "#/home");
   }
   navigate(location.hash);
+});
 
-  // ---------------------------------------------------------------------------
-  // Mobile sidebar toggle
-  // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Mobile sidebar toggle — runs immediately (DOM is ready; scripts are at
+// bottom of <body> so all elements exist when this executes)
+// ---------------------------------------------------------------------------
+(function () {
   const toggle = document.getElementById('sidebar-toggle');
   const sidebar = document.getElementById('sidebar');
   if (!toggle || !sidebar) return;
@@ -79,11 +82,15 @@ document.addEventListener("DOMContentLoaded", () => {
     toggle.setAttribute('aria-label', 'Open navigation');
   }
 
-  toggle.addEventListener('click', () =>
-    sidebar.classList.contains('sidebar--open') ? closeSidebar() : openSidebar()
-  );
+  toggle.addEventListener('click', function () {
+    if (sidebar.classList.contains('sidebar--open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  });
   overlay.addEventListener('click', closeSidebar);
-  sidebar.addEventListener('click', (e) => {
+  sidebar.addEventListener('click', function (e) {
     if (e.target.closest('.nav-link')) closeSidebar();
   });
-});
+})();
