@@ -136,6 +136,10 @@ function startVideoSSE(url, { onChunk, onShots, onSaved, onDone, onError }) {
       es.close();
       _videoActiveES = null;
       onDone && onDone();
+    } else if (msg.type === "error") {
+      es.close();
+      _videoActiveES = null;
+      onError && onError(msg.message || "An error occurred.");
     }
   };
 

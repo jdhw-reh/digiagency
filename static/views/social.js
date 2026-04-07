@@ -289,6 +289,7 @@ function startSocialSSE(endpoint, { onChunk, onOpportunities, onPosts, onDone, o
     else if (msg.type === "opportunities" && onOpportunities) onOpportunities(msg.data);
     else if (msg.type === "posts" && onPosts)                onPosts(msg.data);
     else if (msg.type === "done") { es.close(); if (onDone) onDone(); }
+    else if (msg.type === "error") { es.close(); if (onError) onError(msg.message || "An error occurred."); }
   };
 
   es.onerror = () => {

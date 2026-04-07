@@ -49,6 +49,14 @@ async def get_user(user_id: str) -> dict | None:
     return json.loads(raw) if raw else None
 
 
+async def get_user_by_email(email: str) -> dict | None:
+    """Look up user data via account_user_id:{email} — fallback when session user_id is stale."""
+    user_id = await redis_client.get(f"account_user_id:{email.lower()}")
+    if not user_id:
+        return None
+    return await get_user(user_id)
+
+
 async def save_user(user_id: str, data: dict) -> None:
     await redis_client.setex(f"user:{user_id}", USER_TTL, json.dumps(data))
 

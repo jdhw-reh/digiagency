@@ -10,7 +10,7 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, log_activity, get_token_email, log_history_item
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
 from agents.content import researcher, planner, writer
 from services.notion import create_article_page
@@ -35,9 +35,15 @@ _SESSION_DEFAULTS = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_api_key(session: dict) -> str:
+async def _get_api_key(session: dict, agency_token: str | None = None) -> str:
     user = await get_user(session.get("user_id", ""))
-    return (user or {}).get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    key = (user or {}).get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    if not key and agency_token:
+        email = await get_token_email(agency_token)
+        if email:
+            user = await get_user_by_email(email)
+            key = (user or {}).get("gemini_api_key") or ""
+    return key
 
 
 async def _get_notion_creds(session: dict) -> tuple[str, str]:
@@ -110,7 +116,7 @@ async def select_topic(payload: SelectTopicPayload):
 # ---------------------------------------------------------------------------
 
 @router.get("/stream/research")
-async def stream_research(session_id: str):
+async def stream_research(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "content", _SESSION_DEFAULTS)
     if session["stage"] not in ("idle",):
         return JSONResponse({"error": "Session not in idle stage"}, status_code=400)
@@ -123,7 +129,10 @@ async def stream_research(session_id: str):
     session["notion_url"] = None
     await save_session(session_id, session)
 
-    api_key = await _get_api_key(session)
+    api_key = await _get_api_key(session, agency_token)
+    if not api_key:
+        async def no_key(): yield sse_event({"type": "error", "code": "gemini_not_configured", "message": "Gemini API key not set. Open Settings to configure it."})
+        return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
         async for chunk in researcher.run(session["business_context"], api_key=api_key):
@@ -141,7 +150,7 @@ async def stream_research(session_id: str):
 
 
 @router.get("/stream/plan")
-async def stream_plan(session_id: str):
+async def stream_plan(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "content", _SESSION_DEFAULTS)
     if session.get("selected_topic") is None:
         return JSONResponse({"error": "No topic selected"}, status_code=400)
@@ -149,7 +158,10 @@ async def stream_plan(session_id: str):
     session["stage"] = "planning"
     await save_session(session_id, session)
     brief_parts: list[str] = []
-    api_key = await _get_api_key(session)
+    api_key = await _get_api_key(session, agency_token)
+    if not api_key:
+        async def no_key(): yield sse_event({"type": "error", "code": "gemini_not_configured", "message": "Gemini API key not set. Open Settings to configure it."})
+        return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
         async for chunk in planner.run(session["selected_topic"], session["business_context"], api_key=api_key):
@@ -172,7 +184,10 @@ async def stream_write(session_id: str, agency_token: str | None = Cookie(defaul
     session["stage"] = "writing"
     await save_session(session_id, session)
     article_parts: list[str] = []
-    api_key = await _get_api_key(session)
+    api_key = await _get_api_key(session, agency_token)
+    if not api_key:
+        async def no_key(): yield sse_event({"type": "error", "code": "gemini_not_configured", "message": "Gemini API key not set. Open Settings to configure it."})
+        return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
     email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
