@@ -7,13 +7,13 @@
 const SOCIAL_SESSION_KEY = "agency_social_session";
 
 const SOCIAL_STAGES = {
-  idle:           { scout: true,  strategise: false, write: false, save: false, copy: false, reset: false },
-  scouting:       { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
-  awaiting_idea:  { scout: false, strategise: true,  write: false, save: false, copy: false, reset: true  },
-  strategising:   { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
-  awaiting_copy:  { scout: false, strategise: false, write: true,  save: false, copy: false, reset: true  },
-  writing_posts:  { scout: false, strategise: false, write: false, save: false, copy: false, reset: false },
-  done:           { scout: true,  strategise: false, write: false, save: true,  copy: true,  reset: true  },
+  idle:           { scout: true,  strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
+  scouting:       { scout: false, strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
+  awaiting_idea:  { scout: false, strategise: true,  write: false, save: false, copy: false, downloadCsv: false, reset: true  },
+  strategising:   { scout: false, strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
+  awaiting_copy:  { scout: false, strategise: false, write: true,  save: false, copy: false, downloadCsv: false, reset: true  },
+  writing_posts:  { scout: false, strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
+  done:           { scout: true,  strategise: false, write: false, save: true,  copy: true,  downloadCsv: true,  reset: true  },
 };
 
 const SOCIAL_STAGE_ACTIVE_PANEL = {
@@ -97,6 +97,7 @@ function getSocialUi() {
     btnStrategise:     $s("social-btn-strategise"),
     btnWrite:          $s("social-btn-write"),
     btnCopyContent:    $s("social-btn-copy-content"),
+    btnDownloadCsv:    $s("social-btn-download-csv"),
     btnSave:           $s("social-btn-save"),
     btnReset:          $s("social-btn-reset"),
     scoutOutput:       $s("social-scout-output"),
@@ -191,9 +192,11 @@ function restoreSocialState(state) {
   }
 
   if (state.posts && state.posts.length > 0) {
+    const n = state.posts.length;
+    sui.copywriterStream.innerHTML = `<p style="color:var(--text-muted);font-style:italic">✓ ${n} post${n !== 1 ? "s" : ""} written</p>`;
     renderPostCards(state.posts);
     sui.panelCopywriter.classList.add("posts-ready");
-    sui.postCount.textContent = `${state.posts.length} posts`;
+    sui.postCount.textContent = `${n} posts`;
   }
 
   if (state.saved_posts && state.saved_posts.length > 0) {
@@ -216,8 +219,9 @@ function setSocialStage(stage) {
   sui.btnScout.disabled      = !cfg.scout;
   sui.btnStrategise.disabled = !cfg.strategise;
   sui.btnWrite.disabled      = !cfg.write;
-  sui.btnCopyContent.disabled = !cfg.copy;
-  sui.btnSave.disabled        = !cfg.save;
+  sui.btnCopyContent.disabled  = !cfg.copy;
+  sui.btnDownloadCsv.disabled  = !cfg.downloadCsv;
+  sui.btnSave.disabled         = !cfg.save;
   sui.btnReset.disabled       = !cfg.reset;
 
   [sui.scoutStatus, sui.strategistStatus, sui.copywriterStatus].forEach((el) => {
@@ -591,9 +595,11 @@ function wireSocialButtons() {
       onChunk: (text) => { copywriterText += text; appendToSocialOutput(sui.copywriterStream, copywriterText); },
       onPosts: (posts) => {
         finaliseSocialOutput(sui.copywriterStream);
+        const n = posts.length;
+        sui.copywriterStream.innerHTML = `<p style="color:var(--text-muted);font-style:italic">✓ ${n} post${n !== 1 ? "s" : ""} written</p>`;
         renderPostCards(posts);
         sui.panelCopywriter.classList.add("posts-ready");
-        sui.postCount.textContent = `${posts.length} post${posts.length !== 1 ? "s" : ""}`;
+        sui.postCount.textContent = `${n} post${n !== 1 ? "s" : ""}`;
       },
       onDone: () => setSocialStage("done"),
       onError: (msg) => { setSocialStage("awaiting_copy"); showSocialError(msg); },
@@ -618,6 +624,24 @@ function wireSocialButtons() {
     } catch {
       showSocialError("Could not copy to clipboard");
     }
+  });
+
+  // Download CSV
+  sui.btnDownloadCsv.addEventListener("click", () => {
+    const cards = sui.postsContainer.querySelectorAll(".post-card");
+    const rows = [["platform", "content", "char_count"]];
+    cards.forEach((card) => {
+      const platform = card.querySelector(".post-platform-badge")?.textContent?.trim() || "";
+      const content  = card.querySelector(".post-card-content")?.textContent?.trim() || "";
+      rows.push([platform, content, String(content.length)]);
+    });
+    const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "social-posts.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
   });
 
   // Save to Notion
