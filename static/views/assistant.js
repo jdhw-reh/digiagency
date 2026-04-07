@@ -192,7 +192,10 @@ function appendAssistantMessage(text) {
 
   const div = document.createElement("div");
   div.className = "chat-message chat-message--assistant";
-  div.innerHTML = `<div class="message-bubble">${escapeHtml(text)}</div>`;
+  const bubble = document.createElement("div");
+  bubble.className = "message-bubble markdown-output";
+  bubble.innerHTML = renderMarkdown(text);
+  div.appendChild(bubble);
   aui.messages.appendChild(div);
   scrollToBottom();
   return div;
@@ -205,7 +208,7 @@ function createAssistantBubble() {
   div.className = "chat-message chat-message--assistant";
 
   const bubble = document.createElement("div");
-  bubble.className = "message-bubble";
+  bubble.className = "message-bubble markdown-output";
 
   const cursor = document.createElement("span");
   cursor.className = "stream-cursor";
@@ -283,7 +286,7 @@ async function sendMessage() {
       responseText += msg.text;
       const cursor = bubble.querySelector(".stream-cursor");
       if (cursor) cursor.remove();
-      bubble.textContent = responseText;
+      bubble.innerHTML = renderMarkdown(responseText);
       const cur = document.createElement("span");
       cur.className = "stream-cursor";
       bubble.appendChild(cur);
@@ -305,7 +308,7 @@ async function sendMessage() {
     const cursor = bubble.querySelector(".stream-cursor");
     if (cursor) cursor.remove();
     if (!responseText) {
-      bubble.textContent = "Something went wrong. Please try again.";
+      bubble.innerHTML = "Something went wrong. Please try again.";
       bubble.style.color = "var(--danger)";
     }
     _asstIsResponding = false;

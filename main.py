@@ -128,6 +128,19 @@ async def get_history_endpoint(request: Request):
     return JSONResponse(items)
 
 
+@app.delete("/api/history/{item_id}")
+async def delete_history_endpoint(item_id: str, request: Request):
+    from state import get_token_email, delete_history_item
+    token = request.cookies.get("agency_token")
+    email = await get_token_email(token) if token else None
+    if not email:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    deleted = await delete_history_item(email, item_id)
+    if not deleted:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
 # ---------------------------------------------------------------------------
 # Director summary — powers the home dashboard
 # ---------------------------------------------------------------------------

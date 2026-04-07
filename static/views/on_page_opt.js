@@ -145,18 +145,18 @@ function restoreOptState(state) {
 
   if (state.analysis) {
     clearOptEmptyState(opu.panelAOutput);
-    opu.panelAOutput.textContent = state.analysis;
+    opu.panelAOutput.innerHTML = renderMarkdown(state.analysis);
   }
   if (state.keyword_brief) {
     clearOptEmptyState(opu.panelAOutput);
-    opu.panelAOutput.textContent = state.keyword_brief;
+    opu.panelAOutput.innerHTML = renderMarkdown(state.keyword_brief);
     if (state.keyword_data && Object.keys(state.keyword_data).length) {
       renderKeywordCard(state.keyword_data);
     }
   }
   if (state.final_copy) {
     clearOptEmptyState(opu.panelBOutput);
-    opu.panelBOutput.textContent = state.final_copy;
+    opu.panelBOutput.innerHTML = renderMarkdown(state.final_copy);
     updateWordCount(state.final_copy);
   }
 
@@ -358,7 +358,7 @@ async function startReview() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      opu.panelAOutput.textContent = fullText;
+      opu.panelAOutput.innerHTML = renderMarkdown(fullText);
       appendOptCursor(opu.panelAOutput);
     } else if (msg.type === "done") {
       es.close();
@@ -415,7 +415,7 @@ async function startRewrite() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      opu.panelBOutput.textContent = fullText;
+      opu.panelBOutput.innerHTML = renderMarkdown(fullText);
       appendOptCursor(opu.panelBOutput);
       updateWordCount(fullText);
     } else if (msg.type === "done") {
@@ -488,7 +488,7 @@ async function startBuild() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      opu.panelAOutput.textContent = fullText;
+      opu.panelAOutput.innerHTML = renderMarkdown(fullText);
       appendOptCursor(opu.panelAOutput);
     } else if (msg.type === "keyword_data") {
       renderKeywordCard(msg.data);
@@ -547,7 +547,7 @@ async function startWrite() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      opu.panelBOutput.textContent = fullText;
+      opu.panelBOutput.innerHTML = renderMarkdown(fullText);
       appendOptCursor(opu.panelBOutput);
       updateWordCount(fullText);
     } else if (msg.type === "done") {
@@ -600,12 +600,12 @@ async function saveOptToNotion() {
 
     if (data.notion_url) {
       opu.btnSaveNotion.textContent = "Saved ✓";
-    } else if (data.error) {
-      showOptError(`Notion save failed: ${data.error}`);
+    } else if (data.code === "notion_not_configured" || !data.error) {
+      showNotionConfigPrompt();
       opu.btnSaveNotion.disabled = false;
       opu.btnSaveNotion.textContent = "Save to Notion";
     } else {
-      showOptError("Set NOTION_ON_PAGE_OPT_DB_ID in .env to enable Notion saving.");
+      showOptError(`Notion save failed: ${data.error}`);
       opu.btnSaveNotion.disabled = false;
       opu.btnSaveNotion.textContent = "Save to Notion";
     }

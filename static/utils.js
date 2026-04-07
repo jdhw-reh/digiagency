@@ -2,7 +2,7 @@
 
 function renderMarkdown(text) {
   if (!text) return "";
-  return marked.parse(text);
+  return marked.parse(text + "\u200B");
 }
 
 function showNotionConfigPrompt() {

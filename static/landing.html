@@ -10,6 +10,8 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { scroll-behavior: smooth; }
+
     body {
       font-family: 'DM Sans', system-ui, sans-serif;
       background: #0a0a0a;
@@ -53,6 +55,23 @@
       transition: color 0.15s, border-color 0.15s;
     }
     .nav-link:hover { color: #e5e5e5; border-color: #444; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .nav-links a.nav-page-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: #777;
+      transition: color 0.15s;
+    }
+    .nav-links a.nav-page-link:hover { color: #e5e5e5; }
+
+    @media (max-width: 720px) {
+      .nav-links a.nav-page-link { display: none; }
+    }
 
     /* ── Hero ── */
     .hero {
@@ -386,7 +405,11 @@
       <span class="mark">✦</span>
       Digi Agency
     </div>
-    <a href="/login" class="nav-link">Sign in</a>
+    <div class="nav-links">
+      <a href="#features" class="nav-page-link">Features</a>
+      <a href="#pricing" class="nav-page-link">Pricing</a>
+      <a href="/login" class="nav-link">Sign in</a>
+    </div>
   </nav>
 
   <!-- Hero -->

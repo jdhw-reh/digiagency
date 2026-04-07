@@ -119,17 +119,17 @@ function restoreAuditState(state) {
 
   if (state.implementation) {
     clearEmptyState(sau.implementerOutput);
-    sau.implementerOutput.textContent = state.implementation;
+    sau.implementerOutput.innerHTML = renderMarkdown(state.implementation);
   }
 
   if (state.recommendations) {
     clearEmptyState(sau.recommenderOutput);
-    sau.recommenderOutput.textContent = state.recommendations;
+    sau.recommenderOutput.innerHTML = renderMarkdown(state.recommendations);
   }
 
   if (state.analysis) {
     clearEmptyState(sau.analyserOutput);
-    sau.analyserOutput.textContent = state.analysis;
+    sau.analyserOutput.innerHTML = renderMarkdown(state.analysis);
   }
 
   if (state.audit_data && Object.keys(state.audit_data).length) {
@@ -313,7 +313,7 @@ async function startAudit() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      sau.auditorOutput.textContent = fullText;
+      sau.auditorOutput.innerHTML = renderMarkdown(fullText);
       appendCursor(sau.auditorOutput);
     } else if (msg.type === "technical_signals") {
       // Show score card as soon as crawl data arrives (before LLM finishes)
@@ -375,7 +375,7 @@ async function startAnalyse() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      sau.analyserOutput.textContent = fullText;
+      sau.analyserOutput.innerHTML = renderMarkdown(fullText);
       appendCursor(sau.analyserOutput);
     } else if (msg.type === "done") {
       es.close();
@@ -432,7 +432,7 @@ async function startRecommend() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      sau.recommenderOutput.textContent = fullText;
+      sau.recommenderOutput.innerHTML = renderMarkdown(fullText);
       appendCursor(sau.recommenderOutput);
     } else if (msg.type === "done") {
       es.close();
@@ -489,7 +489,7 @@ async function startImplement() {
     if (msg.type === "chunk") {
       fullText += msg.text;
       cursor.remove();
-      sau.implementerOutput.textContent = fullText;
+      sau.implementerOutput.innerHTML = renderMarkdown(fullText);
       appendCursor(sau.implementerOutput);
     } else if (msg.type === "done") {
       es.close();
@@ -529,13 +529,12 @@ async function saveToNotion() {
 
     if (data.notion_url) {
       sau.btnSaveNotion.textContent = "Saved to Notion ✓";
-    } else if (data.error) {
-      showAuditError(`Notion save failed: ${data.error}`);
+    } else if (data.code === "notion_not_configured" || !data.error) {
+      showNotionConfigPrompt();
       sau.btnSaveNotion.disabled = false;
       sau.btnSaveNotion.textContent = "Save to Notion";
     } else {
-      // No DB configured
-      showAuditError("Set NOTION_SEO_AUDIT_DB_ID in .env to enable Notion saving.");
+      showAuditError(`Notion save failed: ${data.error}`);
       sau.btnSaveNotion.disabled = false;
       sau.btnSaveNotion.textContent = "Save to Notion";
     }

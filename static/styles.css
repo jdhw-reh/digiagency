@@ -2919,6 +2919,7 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 .markdown-output {
   font-size: 13.5px;
   line-height: 1.7;
+  min-height: 1em;
 }
 
 .markdown-output h1,

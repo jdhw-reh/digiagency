@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import secrets
+import uuid
 from datetime import datetime
 
 import bcrypt
@@ -226,6 +227,7 @@ HISTORY_TTL = 86400 * 90  # 90 days
 
 async def log_history_item(email: str, tool: str, title: str, output: str) -> None:
     entry = {
+        "id": str(uuid.uuid4()),
         "tool": tool,
         "title": title,
         "output": output,
@@ -240,6 +242,17 @@ async def log_history_item(email: str, tool: str, title: str, output: str) -> No
 async def get_history(email: str, limit: int = 20) -> list[dict]:
     items = await redis_client.lrange(f"history:{email.lower()}", 0, limit - 1)
     return [json.loads(i) for i in items]
+
+
+async def delete_history_item(email: str, item_id: str) -> bool:
+    key = f"history:{email.lower()}"
+    items = await redis_client.lrange(key, 0, -1)
+    for raw in items:
+        entry = json.loads(raw)
+        if entry.get("id") == item_id:
+            await redis_client.lrem(key, 1, raw)
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

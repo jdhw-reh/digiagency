@@ -176,7 +176,7 @@ function restoreSocialState(state) {
 
   if (state.calendar) {
     clearSocialEmptyState(sui.strategistOutput);
-    sui.strategistOutput.textContent = state.calendar;
+    sui.strategistOutput.innerHTML = renderMarkdown(state.calendar);
   }
 
   if (state.opportunities && state.opportunities.length > 0) {
@@ -308,11 +308,11 @@ function clearSocialEmptyState(el) {
   if (empty) empty.remove();
 }
 
-function appendToSocialOutput(el, text) {
+function appendToSocialOutput(el, fullText) {
   clearSocialEmptyState(el);
   const cursor = el.querySelector(".stream-cursor");
   if (cursor) cursor.remove();
-  el.textContent += text;
+  el.innerHTML = renderMarkdown(fullText);
   const cur = document.createElement("span");
   cur.className = "stream-cursor";
   el.appendChild(cur);
@@ -541,8 +541,9 @@ function wireSocialButtons() {
 
     setSocialStage("scouting");
 
+    let scoutText = "";
     startSocialSSE("/api/social/stream/scout", {
-      onChunk: (text) => appendToSocialOutput(sui.scoutOutput, text),
+      onChunk: (text) => { scoutText += text; appendToSocialOutput(sui.scoutOutput, scoutText); },
       onOpportunities: (opps) => {
         renderOpportunityList(opps, null);
         sui.panelScout.classList.add("topics-ready");
@@ -568,8 +569,9 @@ function wireSocialButtons() {
     sui.strategistOutput.innerHTML = "";
     setSocialStage("strategising");
 
+    let stratText = "";
     startSocialSSE("/api/social/stream/strategise", {
-      onChunk: (text) => appendToSocialOutput(sui.strategistOutput, text),
+      onChunk: (text) => { stratText += text; appendToSocialOutput(sui.strategistOutput, stratText); },
       onDone: () => { finaliseSocialOutput(sui.strategistOutput); setSocialStage("awaiting_copy"); },
       onError: (msg) => { setSocialStage("awaiting_idea"); showSocialError(msg); },
     });
@@ -583,8 +585,9 @@ function wireSocialButtons() {
     sui.postCount.textContent = "";
     setSocialStage("writing_posts");
 
+    let copywriterText = "";
     startSocialSSE("/api/social/stream/write-posts", {
-      onChunk: (text) => appendToSocialOutput(sui.copywriterStream, text),
+      onChunk: (text) => { copywriterText += text; appendToSocialOutput(sui.copywriterStream, copywriterText); },
       onPosts: (posts) => {
         finaliseSocialOutput(sui.copywriterStream);
         renderPostCards(posts);

@@ -1,5 +1,11 @@
 "use strict";
 
+function selectPlan(plan) {
+  document.getElementById("plan-starter").classList.toggle("selected", plan === "starter");
+  document.getElementById("plan-pro").classList.toggle("selected", plan === "pro");
+  sessionStorage.setItem("selected_plan", plan);
+}
+
 function switchTab(tab) {
   document.getElementById("form-login").style.display    = tab === "login"    ? "block" : "none";
   document.getElementById("form-register").style.display = tab === "register" ? "block" : "none";
@@ -86,7 +92,9 @@ async function doRegister() {
 
     // Account created — now redirect to Stripe Checkout
     btn.textContent = "Redirecting to payment…";
-    const plan = sessionStorage.getItem("selected_plan") || "pro";
+    const plan = document.getElementById("plan-starter")?.classList.contains("selected")
+      ? "starter"
+      : "pro";
     const checkoutRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
     let checkoutData = {};
     try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
@@ -111,7 +119,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const plan = params.get("plan");
   if (plan === "starter" || plan === "pro") {
-    sessionStorage.setItem("selected_plan", plan);
+    selectPlan(plan);
+  } else {
+    const stored = sessionStorage.getItem("selected_plan");
+    if (stored === "starter" || stored === "pro") selectPlan(stored);
   }
 
   const checkout = params.get("checkout");

@@ -105,13 +105,13 @@ function restoreState(state) {
 
   if (state.article) {
     clearEmptyState(ui.writerOutput);
-    ui.writerOutput.textContent = state.article;
+    ui.writerOutput.innerHTML = renderMarkdown(state.article);
     updateWordCount(state.article);
   }
 
   if (state.brief) {
     clearEmptyState(ui.plannerOutput);
-    ui.plannerOutput.textContent = state.brief;
+    ui.plannerOutput.innerHTML = renderMarkdown(state.brief);
   }
 
   if (state.topics && state.topics.length > 0) {
@@ -239,13 +239,11 @@ function clearEmptyState(el) {
   if (empty) empty.remove();
 }
 
-function appendToOutput(el, text) {
+function appendToOutput(el, fullText) {
   clearEmptyState(el);
-  // Remove streaming cursor before appending, re-add at end
   const cursor = el.querySelector(".stream-cursor");
   if (cursor) cursor.remove();
-  el.textContent += text;
-  // Add streaming cursor
+  el.innerHTML = renderMarkdown(fullText);
   const cur = document.createElement("span");
   cur.className = "stream-cursor";
   el.appendChild(cur);
@@ -385,8 +383,9 @@ function wireButtons() {
 
     setStage("researching");
 
+    let researchText = "";
     startSSE("/api/content/stream/research", {
-      onChunk:  (text) => appendToOutput(ui.researcherOutput, text),
+      onChunk:  (text) => { researchText += text; appendToOutput(ui.researcherOutput, researchText); },
       onTopics: (topics) => {
         renderTopicList(topics, null);
         ui.panelResearcher.classList.add("topics-ready");
@@ -412,8 +411,9 @@ function wireButtons() {
     ui.plannerOutput.innerHTML = "";
     setStage("planning");
 
+    let planText = "";
     startSSE("/api/content/stream/plan", {
-      onChunk: (text) => appendToOutput(ui.plannerOutput, text),
+      onChunk: (text) => { planText += text; appendToOutput(ui.plannerOutput, planText); },
       onDone:  () => { finaliseOutput(ui.plannerOutput); setStage("awaiting_write"); },
       onError: (msg) => { setStage("awaiting_topic"); showError(msg); },
     });
@@ -429,8 +429,8 @@ function wireButtons() {
 
     startSSE("/api/content/stream/write", {
       onChunk: (text) => {
-        appendToOutput(ui.writerOutput, text);
         articleText += text;
+        appendToOutput(ui.writerOutput, articleText);
         updateWordCount(articleText);
       },
       onDone:  () => { finaliseOutput(ui.writerOutput); setStage("done"); },
