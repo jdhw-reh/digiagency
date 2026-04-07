@@ -326,6 +326,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const creds = _loadStoredCreds();
   if (!_userId || !creds.gemini_api_key) {
     showModal();
+  } else if (!creds.notion_token) {
+    // Gemini is set up but Notion isn't — nudge once per session after a short delay
+    setTimeout(() => {
+      if (typeof showNotionConfigPrompt === "function") showNotionConfigPrompt();
+    }, 2500);
   }
 
   updateSettingsIndicator();

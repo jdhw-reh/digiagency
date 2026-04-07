@@ -1566,6 +1566,110 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 }
 
 /* ============================================================
+   Notion config prompt
+   ============================================================ */
+
+.notion-config-prompt {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 18px 20px 16px;
+  width: 280px;
+  z-index: 1001;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  pointer-events: none;
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+.notion-config-prompt.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.notion-prompt__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+
+.notion-prompt__icon {
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #000;
+  flex-shrink: 0;
+  letter-spacing: -1px;
+}
+
+.notion-prompt__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+.notion-prompt__msg {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.notion-prompt__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notion-prompt__yes {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #6366f1;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.notion-prompt__yes:hover {
+  background: #4f52d6;
+}
+
+.notion-prompt__no {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 8px;
+  border: 1px solid #333;
+  cursor: pointer;
+  background: transparent;
+  color: #666;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.notion-prompt__no:hover {
+  border-color: #555;
+  color: #aaa;
+}
+
+/* ============================================================
    Violet accent (SEO Audit Team)
    ============================================================ */
 
@@ -2760,4 +2864,95 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     padding-top: 10px;
     padding-bottom: 10px;
   }
+}
+
+/* ============================================================
+   Markdown output — prose styles
+   ============================================================ */
+
+.markdown-output {
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.markdown-output h1,
+.markdown-output h2,
+.markdown-output h3,
+.markdown-output h4 {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 1em 0 0.4em;
+  line-height: 1.3;
+}
+
+.markdown-output h1 { font-size: 1.35em; }
+.markdown-output h2 { font-size: 1.18em; }
+.markdown-output h3 { font-size: 1.05em; }
+.markdown-output h4 { font-size: 0.95em; }
+
+.markdown-output p {
+  margin: 0 0 0.7em;
+}
+
+.markdown-output ul,
+.markdown-output ol {
+  padding-left: 1.4em;
+  margin: 0 0 0.7em;
+}
+
+.markdown-output li {
+  margin-bottom: 0.3em;
+}
+
+.markdown-output strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markdown-output em {
+  font-style: italic;
+}
+
+.markdown-output code {
+  font-family: 'Chivo Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.markdown-output pre {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0 0 0.7em;
+}
+
+.markdown-output pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+.markdown-output blockquote {
+  border-left: 3px solid var(--border-accent);
+  padding-left: 1em;
+  margin: 0 0 0.7em;
+  color: var(--text-muted);
+}
+
+.markdown-output hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+.markdown-output a {
+  color: var(--accent);
+  text-decoration: underline;
 }

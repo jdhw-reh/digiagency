@@ -1018,7 +1018,11 @@
   <!-- ===== ERROR TOAST (global) ===== -->
   <!-- Notion not-configured prompt -->
   <div id="notion-config-prompt" class="notion-config-prompt" role="dialog" aria-label="Configure Notion">
-    <p class="notion-prompt__msg">Notion saving isn't configured for your account yet. Would you like to set it up?</p>
+    <div class="notion-prompt__header">
+      <div class="notion-prompt__icon">N</div>
+      <span class="notion-prompt__title">Connect Notion</span>
+    </div>
+    <p class="notion-prompt__msg">Save your work directly to Notion. Takes about 30 seconds to set up.</p>
     <div class="notion-prompt__actions">
       <button class="notion-prompt__yes">Open Settings</button>
       <button class="notion-prompt__no">Not now</button>
