@@ -53,4 +53,37 @@ document.addEventListener("DOMContentLoaded", () => {
     history.replaceState(null, "", "#/home");
   }
   navigate(location.hash);
+
+  // ---------------------------------------------------------------------------
+  // Mobile sidebar toggle
+  // ---------------------------------------------------------------------------
+  const toggle = document.getElementById('sidebar-toggle');
+  const sidebar = document.getElementById('sidebar');
+  if (!toggle || !sidebar) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'sidebar-overlay';
+  document.body.appendChild(overlay);
+
+  function openSidebar() {
+    sidebar.classList.add('sidebar--open');
+    overlay.classList.add('overlay--visible');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close navigation');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('sidebar--open');
+    overlay.classList.remove('overlay--visible');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open navigation');
+  }
+
+  toggle.addEventListener('click', () =>
+    sidebar.classList.contains('sidebar--open') ? closeSidebar() : openSidebar()
+  );
+  overlay.addEventListener('click', closeSidebar);
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest('.nav-link')) closeSidebar();
+  });
 });

@@ -2864,6 +2864,52 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     padding-top: 10px;
     padding-bottom: 10px;
   }
+
+  /* View header top: shrink reset buttons so they don't fight the title */
+  .view-header-top .btn-ghost {
+    font-size: 12px;
+    padding: 6px 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Context bar: stack button below input fields */
+  .context-bar {
+    grid-template-columns: 1fr;
+  }
+  .context-bar .btn-primary,
+  .context-bar .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Social context bar: already single column, just ensure button is full width */
+  .context-bar--social .btn-primary {
+    justify-self: stretch;
+  }
+
+  /* On-page opt meta row: stack inputs vertically */
+  .context-bar--opt .opt-meta-row {
+    flex-direction: column;
+  }
+
+  /* Mode toggle: fill full width */
+  .mode-btn {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    padding: 7px 6px;
+  }
+
+  /* Panel footer: wrap buttons on narrow screens */
+  .panel-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .writer-footer {
+    justify-content: space-between;
+  }
 }
 
 /* ============================================================
