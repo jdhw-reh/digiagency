@@ -37,7 +37,8 @@ async function doLogin() {
 
     if (data.subscription_status !== "active") {
       btn.textContent = "Redirecting to payment…";
-      const checkoutRes = await fetch("/api/checkout/session", { method: "POST" });
+      const plan = sessionStorage.getItem("selected_plan") || "pro";
+      const checkoutRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
       let checkoutData = {};
       try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
       if (!checkoutRes.ok || !checkoutData.url) {
@@ -85,7 +86,8 @@ async function doRegister() {
 
     // Account created — now redirect to Stripe Checkout
     btn.textContent = "Redirecting to payment…";
-    const checkoutRes = await fetch("/api/checkout/session", { method: "POST" });
+    const plan = sessionStorage.getItem("selected_plan") || "pro";
+    const checkoutRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
     let checkoutData = {};
     try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
 
@@ -103,9 +105,15 @@ async function doRegister() {
   }
 }
 
-// Handle Stripe return URL params
+// Handle Stripe return URL params + persist plan selection
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
+
+  const plan = params.get("plan");
+  if (plan === "starter" || plan === "pro") {
+    sessionStorage.setItem("selected_plan", plan);
+  }
+
   const checkout = params.get("checkout");
   if (checkout === "success") {
     document.getElementById("login-error").style.color = "#4ade80";
@@ -114,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("login-error").textContent = "Checkout cancelled. Register again when you\u2019re ready.";
   }
   // Clean URL
-  if (checkout) window.history.replaceState({}, "", "/login");
+  if (checkout || plan) window.history.replaceState({}, "", "/login");
 });
 
 // Enter key support

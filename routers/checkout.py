@@ -21,7 +21,10 @@ _DEFAULT_APP_URL = "https://digiagency.up.railway.app"
 
 
 @router.post("/session")
-async def create_checkout_session(agency_token: str | None = Cookie(default=None)):
+async def create_checkout_session(
+    plan: str = "pro",
+    agency_token: str | None = Cookie(default=None),
+):
     if not agency_token:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
@@ -34,13 +37,17 @@ async def create_checkout_session(agency_token: str | None = Cookie(default=None
         return JSONResponse({"error": "Account not found"}, status_code=404)
 
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
-    price_id = os.environ.get("STRIPE_PRICE_ID")
     app_url = os.environ.get("APP_URL", _DEFAULT_APP_URL).rstrip("/")
+
+    if plan == "starter":
+        price_id = os.environ.get("STRIPE_PRICE_ID_STARTER")
+    else:
+        price_id = os.environ.get("STRIPE_PRICE_ID_PRO")
 
     if not stripe.api_key:
         return JSONResponse({"error": "Stripe not configured"}, status_code=500)
     if not price_id:
-        return JSONResponse({"error": "STRIPE_PRICE_ID not configured"}, status_code=500)
+        return JSONResponse({"error": f"STRIPE_PRICE_ID_{plan.upper()} not configured"}, status_code=500)
 
     session = stripe.checkout.Session.create(
         mode="subscription",
