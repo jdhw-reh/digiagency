@@ -56,6 +56,7 @@ async def stripe_webhook(request: Request):
                 account["subscription_status"] = "active"
                 account["stripe_customer_id"] = obj.get("customer")
                 account["stripe_subscription_id"] = obj.get("subscription")
+                account["plan"] = obj.get("metadata", {}).get("plan", "pro")
                 await save_account(email, account)
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):

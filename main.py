@@ -11,9 +11,15 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi import Depends
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 load_dotenv()
 
+from rate_limits import AIRateLimit
 from routers.content_team import router as content_router
 from routers.social_team import router as social_router
 from routers.assistant import router as assistant_router
@@ -28,7 +34,28 @@ from routers.checkout import router as checkout_router
 from routers.stripe_webhook import router as stripe_webhook_router
 from routers.support import router as support_router
 
+_ai_rate_limit = AIRateLimit()
+
+def _rate_limit_key(request: Request) -> str:
+    """Use the session token as the rate-limit key; fall back to IP."""
+    token = request.cookies.get("agency_token")
+    return token if token else get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
+
 app = FastAPI(title="The Agency")
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        {"error": "Too many requests — please wait before trying again"},
+        status_code=429,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Auth middleware — protect all /api/* and / routes
@@ -196,16 +223,18 @@ async def director_summary():
 # Routers
 # ---------------------------------------------------------------------------
 
-app.include_router(auth_router, prefix="/api/auth")
+_ai_deps = [Depends(_ai_rate_limit)]
+
+app.include_router(auth_router,            prefix="/api/auth")
 app.include_router(admin_router)
-app.include_router(content_router, prefix="/api/content")
-app.include_router(social_router, prefix="/api/social")
-app.include_router(assistant_router, prefix="/api/assistant")
-app.include_router(seo_audit_router, prefix="/api/seo-audit")
-app.include_router(agency_router, prefix="/api/agency")
-app.include_router(video_router, prefix="/api/video")
-app.include_router(on_page_opt_router, prefix="/api/on-page-opt")
-app.include_router(setup_router, prefix="/api/setup")
-app.include_router(checkout_router, prefix="/api/checkout")
-app.include_router(stripe_webhook_router, prefix="/api/stripe")
-app.include_router(support_router, prefix="/api/support")
+app.include_router(content_router,         prefix="/api/content",     dependencies=_ai_deps)
+app.include_router(social_router,          prefix="/api/social",      dependencies=_ai_deps)
+app.include_router(assistant_router,       prefix="/api/assistant",   dependencies=_ai_deps)
+app.include_router(seo_audit_router,       prefix="/api/seo-audit",   dependencies=_ai_deps)
+app.include_router(video_router,           prefix="/api/video",       dependencies=_ai_deps)
+app.include_router(on_page_opt_router,     prefix="/api/on-page-opt", dependencies=_ai_deps)
+app.include_router(agency_router,          prefix="/api/agency")
+app.include_router(setup_router,           prefix="/api/setup")
+app.include_router(checkout_router,        prefix="/api/checkout")
+app.include_router(stripe_webhook_router,  prefix="/api/stripe")
+app.include_router(support_router,         prefix="/api/support")

@@ -55,6 +55,7 @@ async def create_checkout_session(
         client_reference_id=email,
         customer_email=email,
         allow_promotion_codes=True,
+        metadata={"plan": plan},
         success_url=f"{app_url}/login?checkout=success",
         cancel_url=f"{app_url}/login?checkout=cancelled",
     )
