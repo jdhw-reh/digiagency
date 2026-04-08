@@ -408,6 +408,7 @@
     <div class="nav-links">
       <a href="#features" class="nav-page-link">Features</a>
       <a href="#pricing" class="nav-page-link">Pricing</a>
+      <a href="#" class="nav-page-link" onclick="openSupportModal(); return false;">Support</a>
       <a href="/login" class="nav-link">Sign in</a>
     </div>
   </nav>
@@ -545,8 +546,12 @@
       <span class="mark">✦</span>
       Digi Agency &middot; &copy; 2025
     </div>
-    <a href="/login" class="footer-link">Sign in</a>
+    <div style="display:flex; gap:20px; align-items:center;">
+      <a href="#" class="footer-link" onclick="openSupportModal(); return false;">Contact support</a>
+      <a href="/login" class="footer-link">Sign in</a>
+    </div>
   </footer>
 
+  <script src="/static/public-support.js"></script>
 </body>
 </html>

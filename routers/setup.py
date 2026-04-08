@@ -33,7 +33,6 @@ _NOTION_BASE = "https://api.notion.com/v1"
 
 class SaveUserPayload(BaseModel):
     user_id: str = ""
-    gemini_api_key: str
     notion_token: str = ""
     notion_parent_page_id: str = ""
 
@@ -104,7 +103,6 @@ async def save_user_route(payload: SaveUserPayload, agency_token: str | None = C
 
     existing = await get_user(user_id) or {}
     existing.update({
-        "gemini_api_key": payload.gemini_api_key.strip(),
         "notion_token": payload.notion_token.strip(),
         "notion_parent_page_id": _extract_page_id(payload.notion_parent_page_id) if payload.notion_parent_page_id else existing.get("notion_parent_page_id", ""),
     })
@@ -307,9 +305,8 @@ async def setup_status(user_id: str):
     )
 
     return {
-        "configured": bool(user.get("gemini_api_key")),
+        "configured": True,
         "notion_configured": notion_configured,
-        "has_gemini": bool(user.get("gemini_api_key")),
         "has_notion": bool(user.get("notion_token")),
         "databases_provisioned": notion_configured,
     }

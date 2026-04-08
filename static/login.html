@@ -175,6 +175,25 @@
     .plan-option.selected .plan-option__name,
     .plan-option.selected .plan-option__price { color: #a5b4fc; }
     .plan-option * { pointer-events: none; }
+
+    .support-hint {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #555;
+    }
+    .support-hint button {
+      background: none;
+      border: none;
+      color: #6366f1;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .support-hint button:hover { color: #a5b4fc; }
   </style>
 </head>
 <body>
@@ -186,6 +205,7 @@
   </div>
 
   <div class="card">
+
     <div class="tabs">
       <button class="tab active" id="tab-login"    onclick="switchTab('login')">Sign in</button>
       <button class="tab"        id="tab-register" onclick="switchTab('register')">Create account</button>
@@ -238,8 +258,11 @@
       </div>
     </div>
   </div>
+
+  <p class="support-hint">Having trouble? <button onclick="openSupportModal()">Contact support</button></p>
 </div>
 
 <script src="/static/login.js"></script>
+<script src="/static/public-support.js"></script>
 </body>
 </html>

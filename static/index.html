@@ -933,43 +933,12 @@
   <div id="onboarding-overlay" class="ob-overlay" style="display:none"></div>
   <div id="onboarding-modal" class="ob-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ob-title">
 
-    <!-- Step 1: Gemini API Key -->
-    <div id="ob-step-1">
+    <!-- Step 1: Notion Setup -->
+    <div id="ob-step-2">
       <div class="ob-header">
         <span class="ob-logo">✦</span>
         <h2 id="ob-title" class="ob-title">Welcome to Digi Agency</h2>
-        <p class="ob-subtitle">To get started, enter your Gemini API key. This powers all AI features.</p>
-      </div>
-
-      <div class="ob-body">
-        <label class="ob-label" for="ob-gemini-key">Gemini API Key</label>
-        <input
-          id="ob-gemini-key"
-          class="ob-input"
-          type="password"
-          placeholder="AIza…"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <p class="ob-hint">
-          Get a free key at
-          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
-          — no billing required.
-        </p>
-        <p id="ob-step1-error" class="ob-error"></p>
-      </div>
-
-      <div class="ob-footer">
-        <button id="ob-step1-next" class="btn-primary ob-btn-full">Continue →</button>
-      </div>
-    </div>
-
-    <!-- Step 2: Notion Setup -->
-    <div id="ob-step-2" style="display:none">
-      <div class="ob-header">
-        <span class="ob-logo">✦</span>
-        <h2 class="ob-title">Connect Notion <span class="ob-optional">(optional)</span></h2>
-        <p class="ob-subtitle">Save articles, social posts, and briefs directly to your Notion workspace.</p>
+        <p class="ob-subtitle">Connect Notion to save articles, social posts, and briefs directly to your workspace. <span class="ob-optional">Optional — you can skip this.</span></p>
       </div>
 
       <div class="ob-body">
