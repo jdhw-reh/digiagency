@@ -13,7 +13,7 @@ import stripe
 from fastapi import APIRouter, Cookie
 from fastapi.responses import JSONResponse
 
-from state import get_account, get_token_email
+from state import get_account, get_token_email, save_account
 
 router = APIRouter()
 
@@ -76,11 +76,25 @@ async def create_portal_session(agency_token: str | None = Cookie(default=None))
     if not account:
         return JSONResponse({"error": "Account not found"}, status_code=404)
 
-    customer_id = account.get("stripe_customer_id")
-    if not customer_id:
-        return JSONResponse({"error": "No billing record found for this account."}, status_code=404)
-
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe.api_key:
+        return JSONResponse({"error": "Stripe not configured"}, status_code=500)
+
+    customer_id = account.get("stripe_customer_id")
+
+    if not customer_id:
+        # Webhook may have missed storing the customer ID — look it up by email
+        customers = stripe.Customer.list(email=email, limit=1)
+        if customers.data:
+            customer_id = customers.data[0].id
+            account["stripe_customer_id"] = customer_id
+            await save_account(email, account)
+        else:
+            return JSONResponse(
+                {"error": "No billing record found. If you signed up recently, please contact support."},
+                status_code=404,
+            )
+
     app_url = os.environ.get("APP_URL", _DEFAULT_APP_URL).rstrip("/")
 
     portal = stripe.billing_portal.Session.create(

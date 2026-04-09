@@ -7,8 +7,19 @@ function selectPlan(plan) {
 }
 
 function switchTab(tab) {
-  document.getElementById("form-login").style.display    = tab === "login"    ? "block" : "none";
-  document.getElementById("form-register").style.display = tab === "register" ? "block" : "none";
+  const showId = tab === "login" ? "form-login" : "form-register";
+  const hideId = tab === "login" ? "form-register" : "form-login";
+  const show = document.getElementById(showId);
+  const hide = document.getElementById(hideId);
+
+  hide.style.opacity = "0";
+  setTimeout(() => {
+    hide.style.display = "none";
+    show.style.display = "block";
+    show.offsetHeight; // force reflow
+    show.style.opacity = "1";
+  }, 140);
+
   document.getElementById("tab-login").classList.toggle("active",    tab === "login");
   document.getElementById("tab-register").classList.toggle("active", tab === "register");
   document.getElementById("login-error").textContent = "";
@@ -42,16 +53,27 @@ async function doLogin() {
     }
 
     if (data.subscription_status !== "active") {
-      btn.textContent = "Redirecting to payment…";
-      const plan = sessionStorage.getItem("selected_plan") || "pro";
-      const checkoutRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
-      let checkoutData = {};
-      try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
-      if (!checkoutRes.ok || !checkoutData.url) {
-        errEl.textContent = checkoutData.error || "Your subscription is inactive. Please contact support.";
-        return;
+      if (data.subscription_status === "inactive") {
+        errEl.innerHTML = "Payment not yet confirmed. If you\u2019ve just completed checkout, wait a moment then sign in again. "
+          + "<a href=\"#\" id=\"subscribe-link\" style=\"color:#5ba3ff;text-decoration:underline\">Subscribe now</a> if you haven\u2019t paid yet.";
+        document.getElementById("subscribe-link").onclick = async (e) => {
+          e.preventDefault();
+          btn.disabled = true;
+          btn.textContent = "Redirecting to payment\u2026";
+          const plan = sessionStorage.getItem("selected_plan") || "pro";
+          const cRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
+          let cData = {};
+          try { cData = await cRes.json(); } catch { /* non-JSON */ }
+          if (!cRes.ok || !cData.url) {
+            errEl.textContent = cData.error || "Could not start checkout. Please contact support.";
+            btn.disabled = false; btn.textContent = "Sign in";
+            return;
+          }
+          window.location.href = cData.url;
+        };
+      } else {
+        errEl.textContent = "Your subscription is not active. Please contact support.";
       }
-      window.location.href = checkoutData.url;
       return;
     }
 
@@ -127,8 +149,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const checkout = params.get("checkout");
   if (checkout === "success") {
-    document.getElementById("login-error").style.color = "#4ade80";
-    document.getElementById("login-error").textContent = "Payment successful! Sign in to access your account.";
+    const el = document.getElementById("login-error");
+    el.classList.add("success");
+    el.textContent = "Payment successful! Sign in to access your account.";
   } else if (checkout === "cancelled") {
     document.getElementById("login-error").textContent = "Checkout cancelled. Register again when you\u2019re ready.";
   }

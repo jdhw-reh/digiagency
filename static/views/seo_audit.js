@@ -37,6 +37,12 @@ const AUDIT_PIPELINE_STATE = {
   done:               { active: 5, completed: [1, 2, 3, 4] },
 };
 
+const NEXT_BAR_CONFIG = {
+  awaiting_analyse:   { msg: "<strong>Audit complete.</strong> Ready for deep analysis.", cta: "Run Analysis" },
+  awaiting_recommend: { msg: "<strong>Analysis complete.</strong> Ready for recommendations.", cta: "Get Recommendations" },
+  awaiting_implement: { msg: "<strong>Recommendations ready.</strong> Build the implementation guide.", cta: "Create Guide" },
+};
+
 // ---------------------------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------------------------
@@ -176,6 +182,25 @@ function setAuditStage(stage) {
   }
 
   updateAuditPipeline(stage);
+  updateNextBar(stage);
+}
+
+function updateNextBar(stage) {
+  const bar    = document.getElementById("audit-next-bar");
+  const msgEl  = document.getElementById("audit-next-bar-msg");
+  const btnEl  = document.getElementById("audit-next-bar-btn");
+  if (!bar || !msgEl || !btnEl) return;
+
+  const cfg = NEXT_BAR_CONFIG[stage];
+  if (cfg) {
+    msgEl.innerHTML = cfg.msg;
+    btnEl.innerHTML = cfg.cta + ' <span class="btn-arrow">→</span>';
+    bar.style.display = "flex";
+    requestAnimationFrame(() => bar.classList.add("visible"));
+  } else {
+    bar.classList.remove("visible");
+    setTimeout(() => { if (!bar.classList.contains("visible")) bar.style.display = "none"; }, 260);
+  }
 }
 
 function updateAuditPipeline(stage) {
@@ -631,6 +656,13 @@ function wireAuditButtons() {
   });
   sau.btnSaveNotion.addEventListener("click", saveToNotion);
   sau.btnReset.addEventListener("click", resetAudit);
+
+  // Next-action bar — delegates to whichever stage action is currently active
+  document.getElementById("audit-next-bar-btn")?.addEventListener("click", () => {
+    if (!sau.btnAnalyse.disabled)   { startAnalyse();   return; }
+    if (!sau.btnRecommend.disabled) { startRecommend(); return; }
+    if (!sau.btnImplement.disabled) { startImplement(); return; }
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -9,15 +9,71 @@ Events handled:
   invoice.payment_failed        → cancel user
 """
 
+import asyncio
+import json
 import os
+import smtplib
+import time
+from email.mime.text import MIMEText
 
+import httpx
 import stripe
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from state import get_account, list_accounts, save_account
+from state import get_account, list_accounts, redis_client, save_account
+
+_ADMIN_EMAIL = "digi.admin.ai@gmail.com"
 
 router = APIRouter()
+
+
+def _send_email(subject: str, body: str) -> None:
+    """Send a plain-text email to the admin Gmail account."""
+    password = os.environ.get("GMAIL_APP_PASSWORD")
+    if not password:
+        return
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = _ADMIN_EMAIL
+    msg["To"] = _ADMIN_EMAIL
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(_ADMIN_EMAIL, password)
+            server.send_message(msg)
+    except Exception:
+        pass  # email failure must never break the webhook response
+
+
+async def _notify_admin_new_signup(email: str, plan: str) -> None:
+    """Push signup to Redis notification queue, send email, and fire optional webhook."""
+    record = json.dumps({"email": email, "plan": plan, "at": time.time()})
+    await redis_client.lpush("admin:new_signups", record)
+    await redis_client.ltrim("admin:new_signups", 0, 99)
+
+    plan_label = plan.capitalize()
+    subject = f"New Digi Agency signup — {email}"
+    body = (
+        f"A new user has signed up for Digi Agency.\n\n"
+        f"Email: {email}\n"
+        f"Plan:  {plan_label}\n\n"
+        f"Review at: https://digiagency.up.railway.app/admin"
+    )
+    asyncio.create_task(asyncio.to_thread(_send_email, subject, body))
+
+    webhook_url = os.environ.get("ADMIN_WEBHOOK_URL")
+    if webhook_url:
+        message = f"New Digi Agency signup: {email} ({plan_label} plan)"
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(
+                    webhook_url,
+                    json={"content": message, "text": message},
+                    headers={"Content-Type": "application/json"},
+                )
+        except Exception:
+            pass
 
 
 async def _find_account_by_customer_id(customer_id: str) -> dict | None:
@@ -53,11 +109,13 @@ async def stripe_webhook(request: Request):
         if email:
             account = await get_account(email)
             if account:
+                plan = obj.get("metadata", {}).get("plan", "pro")
                 account["subscription_status"] = "active"
                 account["stripe_customer_id"] = obj.get("customer")
                 account["stripe_subscription_id"] = obj.get("subscription")
-                account["plan"] = obj.get("metadata", {}).get("plan", "pro")
+                account["plan"] = plan
                 await save_account(email, account)
+                await _notify_admin_new_signup(email, plan)
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
         customer_id = obj.get("customer")
@@ -66,6 +124,18 @@ async def stripe_webhook(request: Request):
             if account:
                 account["subscription_status"] = "cancelled"
                 await save_account(account["email"], account)
+                email = account["email"]
+                plan = account.get("plan", "pro")
+                reason = "subscription cancelled" if event_type == "customer.subscription.deleted" else "payment failed"
+                subject = f"Digi Agency cancellation — {email}"
+                body = (
+                    f"A user has left Digi Agency.\n\n"
+                    f"Email:  {email}\n"
+                    f"Plan:   {plan.capitalize()}\n"
+                    f"Reason: {reason}\n\n"
+                    f"Review at: https://digiagency.up.railway.app/admin"
+                )
+                asyncio.create_task(asyncio.to_thread(_send_email, subject, body))
 
     # Return 200 for all other event types so Stripe doesn't retry
     return {"ok": True}

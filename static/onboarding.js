@@ -211,12 +211,12 @@ async function handleBillingPortal() {
     const res = await fetch("/api/checkout/portal", { method: "POST" });
     const data = await res.json();
     if (!res.ok || !data.url) {
-      alert(data.error || "Could not open billing portal.");
+      showError(data.error || "Could not open billing portal. Please contact support.");
       return;
     }
     window.location.href = data.url;
   } catch {
-    alert("Network error — please try again.");
+    showError("Network error — please try again.");
   } finally {
     btn.textContent = "Manage subscription →";
     btn.disabled = false;

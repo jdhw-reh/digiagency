@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 
 import stripe as _stripe
@@ -240,42 +241,99 @@ async def admin_analytics(agency_admin: str | None = Cookie(default=None)):
     return {**counters, "signup_trend": signup_trend}
 
 
+_PLAN_PRICE_PENCE = {"starter": 2900, "pro": 4900}
+
+
 @router.get("/api/admin/billing")
 async def admin_billing(agency_admin: str | None = Cookie(default=None)):
     if not await _is_admin(agency_admin):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
 
+    # Calculate MRR from our own account records — no Stripe API call needed
+    accounts = await list_accounts()
+    mrr_cents = sum(
+        _PLAN_PRICE_PENCE.get(a.get("plan", "pro"), 4900)
+        for a in accounts
+        if a.get("subscription_status") == "active"
+    )
+
+    # Optionally fetch failed invoice count from Stripe
+    failed_30d = None
+    stripe_error = None
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
-    if not stripe_key:
-        return {"available": False, "reason": "STRIPE_SECRET_KEY not set"}
+    if stripe_key:
+        def _fetch_failed():
+            _stripe.api_key = stripe_key
+            since = int(time.time()) - 30 * 86400
+            return len(list(
+                _stripe.Invoice.list(status="open", created={"gte": since}, limit=100).auto_paging_iter()
+            ))
+        try:
+            failed_30d = await asyncio.to_thread(_fetch_failed)
+        except Exception as exc:
+            stripe_error = str(exc)
+
+    result = {"available": True, "mrr": round(mrr_cents / 100, 2), "failed_30d": failed_30d}
+    if stripe_error:
+        result["stripe_error"] = stripe_error
+    return result
+
+
+@router.get("/api/admin/users/{email}/subscription")
+async def admin_user_subscription(email: str, agency_admin: str | None = Cookie(default=None)):
+    """Fetch live Stripe subscription details for a single user."""
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    account = await get_account(email)
+    if not account:
+        return JSONResponse({"error": "User not found"}, status_code=404)
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    sub_id = account.get("stripe_subscription_id")
+    customer_id = account.get("stripe_customer_id")
+
+    if not stripe_key or not sub_id:
+        return {"available": False}
 
     def _fetch():
         _stripe.api_key = stripe_key
-        subs = _stripe.Subscription.list(status="active", limit=100, expand=["data.items.data.price"])
-        mrr_cents = 0
-        for sub in subs.auto_paging_iter():
-            for item in sub["items"]["data"]:
-                price = item.get("price") or {}
-                amount = price.get("unit_amount") or 0
-                interval = (price.get("recurring") or {}).get("interval", "month")
-                mrr_cents += amount // 12 if interval == "year" else amount
-
-        import time
-        since = int(time.time()) - 30 * 86400
-        failed = list(
-            _stripe.Invoice.list(status="open", created={"gte": since}, limit=100).auto_paging_iter()
-        )
-        return {"mrr_cents": mrr_cents, "failed_30d": len(failed)}
+        sub = _stripe.Subscription.retrieve(sub_id, expand=["default_payment_method"])
+        return {
+            "status": sub.get("status"),
+            "current_period_end": sub.get("current_period_end"),
+            "cancel_at_period_end": sub.get("cancel_at_period_end"),
+            "customer_id": customer_id,
+            "subscription_id": sub_id,
+        }
 
     try:
-        result = await asyncio.to_thread(_fetch)
-        return {
-            "available": True,
-            "mrr": round(result["mrr_cents"] / 100, 2),
-            "failed_30d": result["failed_30d"],
-        }
+        data = await asyncio.to_thread(_fetch)
+        return {"available": True, **data}
     except Exception as exc:
-        return {"available": True, "mrr": None, "failed_30d": None, "error": str(exc)}
+        return {"available": False, "error": str(exc)}
+
+
+@router.get("/api/admin/new-signups")
+async def admin_new_signups(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    raw = await redis_client.lrange("admin:new_signups", 0, -1)
+    signups = []
+    for item in raw:
+        try:
+            signups.append(json.loads(item))
+        except Exception:
+            pass
+    return {"signups": signups}
+
+
+@router.post("/api/admin/new-signups/clear")
+async def admin_clear_signups(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    await redis_client.delete("admin:new_signups")
+    return {"ok": True}
 
 
 @router.get("/api/admin/users/{email}/note")
@@ -513,6 +571,15 @@ def _admin_page() -> str:
   </form>
 </header>
 
+<!-- New signup notifications -->
+<div id="new-signups-banner" style="display:none;background:#0a2a10;border:1px solid #1a6a2a;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:14px;font-weight:600;color:#d1f1a9;">&#x1f514; New signups</span>
+    <button onclick="clearSignups()" style="background:none;border:1px solid #2a6a3a;border-radius:6px;color:#7abf8a;font-size:12px;padding:4px 10px;cursor:pointer;">Dismiss all</button>
+  </div>
+  <div id="new-signups-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+</div>
+
 <!-- Stats cards -->
 <div class="stats-row">
   <div class="stat-card">
@@ -579,6 +646,7 @@ def _admin_page() -> str:
       <tr>
         <th>Email</th>
         <th>Status</th>
+        <th>Plan</th>
         <th>Setup</th>
         <th>Signed Up</th>
         <th>Last Login</th>
@@ -588,7 +656,7 @@ def _admin_page() -> str:
       </tr>
     </thead>
     <tbody id="users-body">
-      <tr><td colspan="8" class="empty">Loading…</td></tr>
+      <tr><td colspan="9" class="empty">Loading…</td></tr>
     </tbody>
 
   </table>
@@ -631,6 +699,10 @@ def _admin_page() -> str:
     </div>
     <div class="modal-body" id="modal-body">
       <div class="empty-activity">Loading…</div>
+    </div>
+    <div id="modal-subscription" style="padding:14px 24px;border-top:1px solid #0d4a8a;display:none;">
+      <div class="notes-label" style="margin-bottom:10px;">Subscription</div>
+      <div id="modal-sub-body" style="font-size:13px;color:#bbdaff;display:flex;flex-wrap:wrap;gap:16px;"></div>
     </div>
     <div class="notes-section">
       <div class="notes-label">Admin Notes</div>
@@ -695,29 +767,33 @@ async function loadUsers() {
     const res = await fetch('/api/admin/users');
     const data = await res.json();
     if (!res.ok) {
-      tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${escHtml(data.error || res.status)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="empty">Error: ${escHtml(data.error || res.status)}</td></tr>`;
       return;
     }
     if (!data.users || data.users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No accounts yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">No accounts yet.</td></tr>';
       return;
     }
     window._allUsers = data.users;
     renderUsers(data.users);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">Failed to load users: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">Failed to load users: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderUsers(users) {
   const tbody = document.getElementById('users-body');
   if (!users || users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">No matching users.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No matching users.</td></tr>';
     return;
   }
   tbody.innerHTML = users.map(u => {
     const status    = u.subscription_status || 'inactive';
     const badgeCls  = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
+    const plan      = u.plan || '—';
+    const planHtml  = plan !== '—'
+      ? `<span style="font-size:12px;font-weight:600;color:${plan==='pro'?'#ffc58f':'#bbdaff'}">${plan}</span>`
+      : `<span style="color:#4a7aa0;font-size:12px">—</span>`;
     const signedUp  = formatDate(u.created_at);
     const lastLogin = u.last_login_at
       ? `<span class="ts-cell">${escHtml(relativeTime(u.last_login_at))}</span>`
@@ -738,6 +814,7 @@ function renderUsers(users) {
     return `<tr class="${rowCls}" data-email="${emailSafe}" data-status="${status}">
       <td>${emailSafe}${churnHtml}</td>
       <td><span class="badge ${badgeCls}">${status}</span></td>
+      <td>${planHtml}</td>
       <td>${setupHtml}</td>
       <td>${signedUp}</td>
       <td>${lastLogin}</td>
@@ -845,15 +922,12 @@ async function loadBilling() {
     if (!d.available) return;
     const mrr = document.getElementById('stat-mrr');
     const failedEl = document.getElementById('stat-failed');
-    if (d.mrr != null) {
-      mrr.textContent = '$' + d.mrr.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    } else {
-      mrr.textContent = d.error ? 'Error' : '—';
-    }
+    mrr.textContent = '£' + (d.mrr || 0).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if (d.failed_30d != null && d.failed_30d > 0) {
       failedEl.textContent = d.failed_30d + ' failed';
       failedEl.style.display = 'inline';
     }
+    if (d.stripe_error) console.warn('Stripe failed-invoice lookup error:', d.stripe_error);
   } catch(e) {}
 }
 
@@ -866,14 +940,18 @@ async function openModal(email) {
   document.getElementById('modal-body').innerHTML = '<div class="empty-activity">Loading…</div>';
   document.getElementById('notes-textarea').value = '';
   document.getElementById('notes-saved').style.opacity = '0';
+  document.getElementById('modal-subscription').style.display = 'none';
   document.getElementById('modal').classList.add('open');
   try {
-    const [actRes, noteRes] = await Promise.all([
+    const [actRes, noteRes, subRes] = await Promise.all([
       fetch('/api/admin/users/' + encodeURIComponent(email) + '/activity'),
       fetch('/api/admin/users/' + encodeURIComponent(email) + '/note'),
+      fetch('/api/admin/users/' + encodeURIComponent(email) + '/subscription'),
     ]);
     const actData  = await actRes.json();
     const noteData = await noteRes.json();
+    const subData  = subRes.ok ? await subRes.json() : null;
+
     if (!actData.activity || actData.activity.length === 0) {
       document.getElementById('modal-body').innerHTML = '<div class="empty-activity">No activity recorded for this user yet.</div>';
     } else {
@@ -885,6 +963,20 @@ async function openModal(email) {
         </div>`).join('');
     }
     document.getElementById('notes-textarea').value = noteData.note || '';
+
+    if (subData && subData.available) {
+      const renewsAt = subData.current_period_end
+        ? new Date(subData.current_period_end * 1000).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})
+        : '—';
+      const cancelFlag = subData.cancel_at_period_end
+        ? ' <span style="color:#ff9da4;font-size:11px">(cancels at period end)</span>' : '';
+      const subIdShort = subData.subscription_id ? subData.subscription_id.slice(0,18) + '…' : '—';
+      document.getElementById('modal-sub-body').innerHTML =
+        `<div><span style="color:#4d6b9a">Status</span><br>${escHtml(subData.status || '—')}${cancelFlag}</div>` +
+        `<div><span style="color:#4d6b9a">Renews</span><br>${escHtml(renewsAt)}</div>` +
+        `<div><span style="color:#4d6b9a">Sub ID</span><br><span style="font-family:monospace;font-size:11px">${escHtml(subIdShort)}</span></div>`;
+      document.getElementById('modal-subscription').style.display = 'block';
+    }
   } catch(e) {
     document.getElementById('modal-body').innerHTML = '<div class="empty-activity">Failed to load.</div>';
   }
@@ -1030,6 +1122,28 @@ async function removeRevoked(email) {
   else { showToast('Error removing ' + email); }
 }
 
+// ---- New Signups ----
+async function loadNewSignups() {
+  try {
+    const res = await fetch('/api/admin/new-signups');
+    if (!res.ok) return;
+    const d = await res.json();
+    const banner = document.getElementById('new-signups-banner');
+    const list = document.getElementById('new-signups-list');
+    if (!d.signups || d.signups.length === 0) { banner.style.display = 'none'; return; }
+    banner.style.display = 'block';
+    list.innerHTML = d.signups.map(s => {
+      const dt = new Date(s.at * 1000).toLocaleString();
+      return `<div style="font-size:13px;color:#bbdaff;">${s.email} &mdash; <span style="color:#7abf8a;text-transform:capitalize">${s.plan}</span> &mdash; <span style="color:#4a7aa0">${dt}</span></div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function clearSignups() {
+  await fetch('/api/admin/new-signups/clear', { method: 'POST' });
+  document.getElementById('new-signups-banner').style.display = 'none';
+}
+
 // ---- Init ----
 loadStats();
 loadUsers();
@@ -1037,6 +1151,7 @@ loadActivity();
 loadAnalytics();
 loadBilling();
 loadRevoked();
+loadNewSignups();
 </script>
 </body>
 </html>"""

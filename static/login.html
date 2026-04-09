@@ -12,8 +12,8 @@
 
     body {
       font-family: 'DM Sans', system-ui, sans-serif;
-      background: #0a0a0a;
-      color: #e5e5e5;
+      background: #F7F6F3;
+      color: #1C1B18;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -31,20 +31,21 @@
       margin-bottom: 36px;
     }
     .brand-mark { font-size: 28px; color: #6366f1; }
-    .brand-name { display: block; font-size: 22px; font-weight: 600; margin-top: 8px; }
-    .brand-sub  { font-size: 14px; color: #666; margin-top: 4px; }
+    .brand-name { display: block; font-size: 22px; font-weight: 600; margin-top: 8px; color: #1C1B18; }
+    .brand-sub  { font-size: 14px; color: #898780; margin-top: 4px; }
 
     .card {
-      background: #141414;
-      border: 1px solid #222;
+      background: #FFFFFF;
+      border: 1px solid #E4E3DF;
       border-radius: 16px;
       padding: 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
 
     .tabs {
       display: flex;
       gap: 4px;
-      background: #0f0f0f;
+      background: #F0EFEB;
       border-radius: 10px;
       padding: 4px;
       margin-bottom: 28px;
@@ -55,7 +56,7 @@
       border: none;
       background: none;
       border-radius: 8px;
-      color: #666;
+      color: #898780;
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
@@ -63,15 +64,21 @@
       transition: background 0.15s, color 0.15s;
     }
     .tab.active {
-      background: #1e1e1e;
-      color: #e5e5e5;
+      background: #FFFFFF;
+      color: #1C1B18;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    #form-login,
+    #form-register {
+      transition: opacity 0.14s ease;
     }
 
     .form-group { margin-bottom: 18px; }
     label {
       display: block;
       font-size: 13px;
-      color: #999;
+      color: #45443F;
       margin-bottom: 7px;
       font-weight: 500;
     }
@@ -79,16 +86,20 @@
     input[type="password"] {
       width: 100%;
       padding: 11px 14px;
-      background: #0f0f0f;
-      border: 1px solid #2a2a2a;
+      background: #F7F6F3;
+      border: 1px solid #E4E3DF;
       border-radius: 10px;
-      color: #e5e5e5;
+      color: #1C1B18;
       font-size: 15px;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    input:focus { border-color: #6366f1; }
+    input::placeholder { color: #B0AFA9; }
+    input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
 
     .submit-btn {
       width: 100%;
@@ -108,25 +119,13 @@
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .error-msg {
-      color: #f87171;
+      color: #dc2626;
       font-size: 13px;
       margin-top: 14px;
       min-height: 18px;
       text-align: center;
     }
-
-    .pending-msg {
-      margin-top: 20px;
-      padding: 16px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 10px;
-      font-size: 14px;
-      color: #aaa;
-      text-align: center;
-      display: none;
-    }
-    .pending-msg strong { color: #e5e5e5; display: block; margin-bottom: 4px; }
+    .error-msg.success { color: #16a34a; }
 
     .plan-picker {
       display: grid;
@@ -135,52 +134,70 @@
       margin-bottom: 20px;
     }
     .plan-option {
-      padding: 14px 12px;
-      background: #0f0f0f;
-      border: 1px solid #2a2a2a;
+      position: relative;
+      padding: 14px 12px 12px;
+      background: #F7F6F3;
+      border: 1px solid #E4E3DF;
       border-radius: 10px;
       cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
       text-align: center;
       user-select: none;
       font-family: inherit;
       width: 100%;
     }
-    .plan-option:hover { border-color: #444; }
+    .plan-option:hover {
+      border-color: #B0AFA9;
+      background: #F0EFEB;
+    }
     .plan-option.selected {
       border-color: #6366f1;
-      background: #1a1a2e;
+      background: rgba(99,102,241,0.05);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .plan-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #6366f1;
+      background: rgba(99,102,241,0.1);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-bottom: 8px;
     }
     .plan-option__name {
       font-size: 13px;
       font-weight: 600;
-      color: #e5e5e5;
+      color: #1C1B18;
       margin-bottom: 4px;
     }
     .plan-option__price {
       font-size: 20px;
       font-weight: 700;
-      color: #e5e5e5;
+      color: #1C1B18;
     }
     .plan-option__price span {
       font-size: 12px;
       font-weight: 400;
-      color: #666;
+      color: #898780;
     }
     .plan-option__desc {
       font-size: 11px;
-      color: #666;
+      color: #898780;
       margin-top: 4px;
+      line-height: 1.4;
     }
     .plan-option.selected .plan-option__name,
-    .plan-option.selected .plan-option__price { color: #a5b4fc; }
+    .plan-option.selected .plan-option__price { color: #4f46e5; }
     .plan-option * { pointer-events: none; }
 
     .support-hint {
       text-align: center;
       margin-top: 20px;
       font-size: 13px;
-      color: #555;
+      color: #898780;
     }
     .support-hint button {
       background: none;
@@ -193,7 +210,7 @@
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .support-hint button:hover { color: #a5b4fc; }
+    .support-hint button:hover { color: #4f46e5; }
   </style>
 </head>
 <body>
@@ -233,12 +250,13 @@
           <button type="button" class="plan-option" id="plan-starter" onclick="selectPlan('starter')">
             <div class="plan-option__name">Starter</div>
             <div class="plan-option__price">£29<span>/mo</span></div>
-            <div class="plan-option__desc">Limited usage of AI tools.</div>
+            <div class="plan-option__desc">Limited AI runs per day</div>
           </button>
           <button type="button" class="plan-option selected" id="plan-pro" onclick="selectPlan('pro')">
+            <div class="plan-badge">Most popular</div>
             <div class="plan-option__name">Pro</div>
             <div class="plan-option__price">£49<span>/mo</span></div>
-            <div class="plan-option__desc">Unlimited usage of AI tools.</div>
+            <div class="plan-option__desc">Unlimited runs · all agents</div>
           </button>
         </div>
       </div>
@@ -252,10 +270,6 @@
       </div>
       <button class="submit-btn" id="reg-btn" onclick="doRegister()">Create account</button>
       <div class="error-msg" id="reg-error"></div>
-      <div class="pending-msg" id="pending-msg">
-        <strong>Account created — awaiting activation</strong>
-        Your account has been created. You'll receive access once it's been activated.
-      </div>
     </div>
   </div>
 

@@ -14,21 +14,30 @@
       .history-list {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 1px;
         padding: 4px 0;
         max-width: 860px;
       }
+      .history-date-group {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        padding: 16px 14px 6px;
+      }
+      .history-date-group:first-child { padding-top: 4px; }
       .history-item {
         display: grid;
-        grid-template-columns: auto 1fr auto auto;
+        grid-template-columns: auto 1fr auto auto auto;
         align-items: center;
         gap: 12px;
-        padding: 12px 14px;
+        padding: 13px 14px;
         border-radius: var(--radius-s, 8px);
         cursor: pointer;
         border: 1px solid transparent;
         transition: background 0.12s, border-color 0.12s;
-        background: var(--bg-card, #fff);
+        background: var(--bg-surface);
       }
       .history-item:hover {
         background: var(--bg-hover);
@@ -40,9 +49,14 @@
         padding: 2px 8px;
         border-radius: 999px;
         white-space: nowrap;
-        background: var(--bg-tag, #f1f5f9);
-        color: var(--text-muted);
       }
+      .history-badge[data-team="content"]    { background: rgba(99,102,241,0.12);  color: #6366f1; }
+      .history-badge[data-team="social"]     { background: rgba(20,184,166,0.12);  color: #14b8a6; }
+      .history-badge[data-team="seo_audit"]  { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+      .history-badge[data-team="assistant"]  { background: rgba(245,158,11,0.12);  color: #d97706; }
+      .history-badge[data-team="video"]      { background: rgba(239,68,68,0.12);   color: #ef4444; }
+      .history-badge[data-team="on_page_opt"]{ background: rgba(16,185,129,0.12);  color: #10b981; }
+      .history-badge[data-team="unknown"]    { background: var(--bg-raised); color: var(--text-muted); }
       .history-body {
         min-width: 0;
       }
@@ -107,8 +121,8 @@
         padding: 24px;
       }
       .history-modal {
-        background: var(--bg-card, #1e1e2e);
-        border: 1px solid var(--border, #2d2d3d);
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
         border-radius: 12px;
         width: 100%;
         max-width: 740px;
@@ -122,7 +136,7 @@
         align-items: center;
         gap: 10px;
         padding: 16px 20px;
-        border-bottom: 1px solid var(--border, #2d2d3d);
+        border-bottom: 1px solid var(--border);
         flex-shrink: 0;
       }
       .history-modal-tool {
@@ -130,8 +144,14 @@
         font-weight: 600;
         padding: 2px 10px;
         border-radius: 999px;
-        background: var(--bg-tag, #2d2d3d);
       }
+      .history-modal-tool[data-team="content"]    { background: rgba(99,102,241,0.12);  color: #6366f1; }
+      .history-modal-tool[data-team="social"]     { background: rgba(20,184,166,0.12);  color: #14b8a6; }
+      .history-modal-tool[data-team="seo_audit"]  { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+      .history-modal-tool[data-team="assistant"]  { background: rgba(245,158,11,0.12);  color: #d97706; }
+      .history-modal-tool[data-team="video"]      { background: rgba(239,68,68,0.12);   color: #ef4444; }
+      .history-modal-tool[data-team="on_page_opt"]{ background: rgba(16,185,129,0.12);  color: #10b981; }
+      .history-modal-tool[data-team="unknown"]    { background: var(--bg-raised); color: var(--text-muted); }
       .history-modal-ts {
         font-size: 12px;
         color: var(--text-muted);
@@ -155,7 +175,7 @@
       .history-modal-body ul,
       .history-modal-body ol { padding-left: 1.4em; margin: 0 0 0.8em; }
       .history-modal-body code {
-        background: var(--bg-hover, #2d2d3d);
+        background: var(--bg-hover);
         padding: 1px 5px;
         border-radius: 4px;
         font-size: 12.5px;
@@ -165,7 +185,7 @@
         padding: 0;
       }
       .history-modal-body pre {
-        background: var(--bg-hover, #2d2d3d);
+        background: var(--bg-hover);
         padding: 12px 16px;
         border-radius: 8px;
         overflow-x: auto;
@@ -176,7 +196,7 @@
         gap: 8px;
         justify-content: flex-end;
         padding: 14px 20px;
-        border-top: 1px solid var(--border, #2d2d3d);
+        border-top: 1px solid var(--border);
         flex-shrink: 0;
       }
       .history-modal-btn {
@@ -190,26 +210,42 @@
       }
       .history-modal-btn:hover { opacity: 0.85; }
       .history-modal-btn.primary {
-        background: var(--accent, #6366f1);
+        background: var(--accent);
         color: #fff;
       }
       .history-modal-btn.secondary {
-        background: var(--bg-hover, #2d2d3d);
+        background: var(--bg-hover);
         color: var(--text-body);
-        border: 1px solid var(--border, #3d3d4d);
+        border: 1px solid var(--border);
       }
     `;
     document.head.appendChild(style);
   }
 
-  const TOOL_COLORS = {
-    "Content Team":       "#6366f1",
-    "Social Team":        "#14b8a6",
-    "SEO Audit":          "#8b5cf6",
-    "Assistant":          "#f59e0b",
-    "Video Director":     "#ef4444",
-    "On-Page Optimiser":  "#10b981",
+  const TOOL_TEAM_KEY = {
+    "Content Team":       "content",
+    "Social Team":        "social",
+    "SEO Audit":          "seo_audit",
+    "Assistant":          "assistant",
+    "Video Director":     "video",
+    "On-Page Optimiser":  "on_page_opt",
   };
+
+  function getTeamKey(toolName) {
+    return TOOL_TEAM_KEY[toolName] || "unknown";
+  }
+
+  function getDateBucket(isoStr) {
+    const now = new Date();
+    const d = new Date(isoStr);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday - 86400000);
+    const startOfWeek = new Date(startOfToday - 6 * 86400000);
+    if (d >= startOfToday)     return "Today";
+    if (d >= startOfYesterday) return "Yesterday";
+    if (d >= startOfWeek)      return "This week";
+    return "Earlier";
+  }
 
   function formatDate(isoStr) {
     try {
@@ -222,7 +258,7 @@
   }
 
   function openModal(item) {
-    const color = TOOL_COLORS[item.tool] || "var(--text-muted)";
+    const teamKey = getTeamKey(item.tool);
 
     const backdrop = document.createElement("div");
     backdrop.className = "history-modal-backdrop";
@@ -235,7 +271,7 @@
     const header = document.createElement("div");
     header.className = "history-modal-header";
     header.innerHTML = `
-      <span class="history-modal-tool" style="color:${color}">${item.tool}</span>
+      <span class="history-modal-tool" data-team="${teamKey}">${item.tool}</span>
       <span class="history-modal-ts">${formatDate(item.ts)}</span>
     `;
 
@@ -291,43 +327,63 @@
     }
 
     list.innerHTML = "";
-    items.forEach((item) => {
-      const color = TOOL_COLORS[item.tool] || "var(--text-muted)";
-      const preview = (item.output || "").replace(/\s+/g, " ").trim().slice(0, 120);
 
-      const el = document.createElement("div");
-      el.className = "history-item";
-      el.innerHTML = `
-        <span class="history-badge" style="color:${color}">${item.tool}</span>
-        <div class="history-body">
-          <div class="history-title">${item.title || "Untitled"}</div>
-          <div class="history-preview">${preview}${(item.output || "").length > 120 ? "…" : ""}</div>
-        </div>
-        <span class="history-view-hint">click to view</span>
-        <span class="history-meta">${formatDate(item.ts)}</span>
-        <button class="history-delete-btn" title="Delete" aria-label="Delete history item">✕</button>
-      `;
+    // Group items into date buckets preserving original order
+    const BUCKET_ORDER = ["Today", "Yesterday", "This week", "Earlier"];
+    const buckets = { "Today": [], "Yesterday": [], "This week": [], "Earlier": [] };
+    items.forEach((item) => buckets[getDateBucket(item.ts)].push(item));
 
-      el.addEventListener("click", (e) => {
-        if (e.target.classList.contains("history-delete-btn")) return;
-        openModal(item);
-      });
+    BUCKET_ORDER.forEach((bucket) => {
+      if (buckets[bucket].length === 0) return;
 
-      el.querySelector(".history-delete-btn").addEventListener("click", async (e) => {
-        e.stopPropagation();
-        try {
-          const res = await fetch(`/api/history/${item.id}`, { method: "DELETE" });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          el.remove();
-          if (list.children.length === 0) {
-            list.innerHTML = `<div class="empty-state">No history yet. Completed outputs from all teams will appear here.</div>`;
+      const groupEl = document.createElement("div");
+      groupEl.className = "history-date-group";
+      groupEl.textContent = bucket;
+      list.appendChild(groupEl);
+
+      buckets[bucket].forEach((item) => {
+        const teamKey = getTeamKey(item.tool);
+        const preview = (item.output || "").replace(/\s+/g, " ").trim().slice(0, 120);
+
+        const el = document.createElement("div");
+        el.className = "history-item";
+        el.innerHTML = `
+          <span class="history-badge" data-team="${teamKey}">${item.tool}</span>
+          <div class="history-body">
+            <div class="history-title">${item.title || "Untitled"}</div>
+            <div class="history-preview">${preview}${(item.output || "").length > 120 ? "…" : ""}</div>
+          </div>
+          <span class="history-view-hint">click to view</span>
+          <span class="history-meta">${formatDate(item.ts)}</span>
+          <button class="history-delete-btn" title="Delete" aria-label="Delete history item">✕</button>
+        `;
+
+        el.addEventListener("click", (e) => {
+          if (e.target.classList.contains("history-delete-btn")) return;
+          openModal(item);
+        });
+
+        el.querySelector(".history-delete-btn").addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            const res = await fetch(`/api/history/${item.id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            el.remove();
+            // Remove the group header if it's now empty
+            const remaining = groupEl.nextElementSibling;
+            if (!remaining || remaining.classList.contains("history-date-group")) {
+              groupEl.remove();
+            }
+            if (list.children.length === 0) {
+              list.innerHTML = `<div class="empty-state">No history yet. Completed outputs from all teams will appear here.</div>`;
+            }
+          } catch (err) {
+            console.error("Failed to delete history item", err);
           }
-        } catch (err) {
-          console.error("Failed to delete history item", err);
-        }
-      });
+        });
 
-      list.appendChild(el);
+        list.appendChild(el);
+      });
     });
   }
 
