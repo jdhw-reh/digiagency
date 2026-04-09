@@ -110,7 +110,7 @@ async def stripe_webhook(request: Request):
             account = await get_account(email)
             if account:
                 metadata = getattr(obj, "metadata", None)
-                plan = (metadata.get("plan") if metadata else None) or "pro"
+                plan = getattr(metadata, "plan", None) or "pro"
                 account["subscription_status"] = "active"
                 account["stripe_customer_id"] = getattr(obj, "customer", None)
                 account["stripe_subscription_id"] = getattr(obj, "subscription", None)
