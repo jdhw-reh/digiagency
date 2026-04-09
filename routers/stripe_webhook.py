@@ -40,13 +40,20 @@ def _send_email(subject: str, body: str) -> None:
     msg["From"] = _ADMIN_EMAIL
     msg["To"] = _ADMIN_EMAIL
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
             server.login(_ADMIN_EMAIL, password)
             server.send_message(msg)
         print("[email] Sent successfully")
     except Exception as exc:
-        print(f"[email] Failed: {exc}")
+        print(f"[email] Failed (SSL/465): {exc}")
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                server.starttls()
+                server.login(_ADMIN_EMAIL, password)
+                server.send_message(msg)
+            print("[email] Sent successfully via STARTTLS/587")
+        except Exception as exc2:
+            print(f"[email] Failed (STARTTLS/587): {exc2}")
 
 
 async def _notify_admin_new_signup(email: str, plan: str) -> None:
