@@ -32,7 +32,9 @@ def _send_email(subject: str, body: str) -> None:
     """Send a plain-text email to the admin Gmail account."""
     password = os.environ.get("GMAIL_APP_PASSWORD")
     if not password:
+        print("[email] GMAIL_APP_PASSWORD not set — skipping email")
         return
+    print(f"[email] Attempting to send: {subject}")
     msg = MIMEText(body)
     msg["Subject"] = subject
     msg["From"] = _ADMIN_EMAIL
@@ -42,8 +44,9 @@ def _send_email(subject: str, body: str) -> None:
             server.starttls()
             server.login(_ADMIN_EMAIL, password)
             server.send_message(msg)
-    except Exception:
-        pass  # email failure must never break the webhook response
+        print("[email] Sent successfully")
+    except Exception as exc:
+        print(f"[email] Failed: {exc}")
 
 
 async def _notify_admin_new_signup(email: str, plan: str) -> None:
