@@ -101,24 +101,25 @@ async def stripe_webhook(request: Request):
     except Exception:
         return JSONResponse({"error": "Invalid payload"}, status_code=400)
 
-    event_type = event["type"]
-    obj = event["data"]["object"]
+    event_type = event.type
+    obj = event.data.object
 
     if event_type == "checkout.session.completed":
-        email = obj.get("client_reference_id")
+        email = getattr(obj, "client_reference_id", None)
         if email:
             account = await get_account(email)
             if account:
-                plan = obj.get("metadata", {}).get("plan", "pro")
+                metadata = dict(getattr(obj, "metadata", {}) or {})
+                plan = metadata.get("plan", "pro")
                 account["subscription_status"] = "active"
-                account["stripe_customer_id"] = obj.get("customer")
-                account["stripe_subscription_id"] = obj.get("subscription")
+                account["stripe_customer_id"] = getattr(obj, "customer", None)
+                account["stripe_subscription_id"] = getattr(obj, "subscription", None)
                 account["plan"] = plan
                 await save_account(email, account)
                 await _notify_admin_new_signup(email, plan)
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
-        customer_id = obj.get("customer")
+        customer_id = getattr(obj, "customer", None)
         if customer_id:
             account = await _find_account_by_customer_id(customer_id)
             if account:
