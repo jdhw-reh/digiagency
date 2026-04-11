@@ -2657,7 +2657,7 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 }
 
 .support-modal {
-  background: var(--bg-card);
+  background: var(--bg-surface);
   border: 1px solid var(--border-mid);
   border-radius: 14px;
   padding: 28px 30px 24px;
@@ -2733,6 +2733,10 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 28px;
+}
+
+.support-actions .btn-ghost {
+  color: var(--text-body);
 }
 
 .support-actions {
