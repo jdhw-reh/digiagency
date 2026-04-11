@@ -395,9 +395,176 @@
     @media (min-width: 721px) and (max-width: 900px) {
       .features-grid { grid-template-columns: repeat(2, 1fr); }
     }
+
+    /* ── Animation system ── */
+    :root {
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes orbDrift {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      25%       { transform: translate(60px, -45px) scale(1.07); }
+      55%       { transform: translate(-35px, 55px) scale(0.94); }
+      80%       { transform: translate(40px, 20px) scale(1.04); }
+    }
+
+    @keyframes starSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* ── Ambient hero background ── */
+    body { position: relative; }
+
+    .ambient-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 120vh;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+    }
+
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 65%);
+      top: -120px; left: -80px;
+      animation: orbDrift 22s ease-in-out infinite;
+    }
+
+    .orb-2 {
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 65%);
+      top: 20px; right: -100px;
+      animation: orbDrift 28s ease-in-out infinite reverse;
+      animation-delay: -12s;
+    }
+
+    /* ── Stacking above ambient ── */
+    nav, .hero, section, footer { position: relative; z-index: 1; }
+    nav { z-index: 10; } /* keep sticky nav on top */
+
+    /* ── Hero entrance choreography ── */
+    .hero-badge {
+      animation: fadeUp 0.65s var(--ease-out-expo) both;
+      animation-delay: 0.08s;
+    }
+
+    .hero h1 {
+      animation: fadeUp 0.65s var(--ease-out-expo) both;
+      animation-delay: 0.2s;
+    }
+
+    .hero p {
+      animation: fadeUp 0.65s var(--ease-out-expo) both;
+      animation-delay: 0.32s;
+    }
+
+    .hero .btn-primary {
+      animation: fadeUp 0.65s var(--ease-out-expo) both;
+      animation-delay: 0.44s;
+    }
+
+    /* ── ✦ mark slow spin ── */
+    .mark {
+      display: inline-block;
+      animation: starSpin 20s linear infinite;
+    }
+
+    /* ── Scroll reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.55s var(--ease-out-expo),
+                  transform 0.55s var(--ease-out-expo);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Feature card hover glow ── */
+    .feature-card {
+      transition: border-color 0.22s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(99,102,241,0.4);
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.1), 0 6px 30px rgba(99,102,241,0.08);
+      transform: translateY(-2px);
+    }
+
+    /* ── Button micro-interactions ── */
+    .btn-primary {
+      transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      background: #4f52d6;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(99,102,241,0.38);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+      box-shadow: none;
+      transition-duration: 0.08s;
+    }
+
+    .btn-cta {
+      transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-cta:hover {
+      background: #4f52d6;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(99,102,241,0.38);
+    }
+
+    .btn-cta:active {
+      transform: scale(0.97);
+      transition-duration: 0.08s;
+    }
+
+    /* ── Pricing card hover ── */
+    .pricing-card {
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+    }
+
+    .pricing-card--pro:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 0 50px rgba(99,102,241,0.16), 0 0 0 1px rgba(99,102,241,0.55);
+    }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
+
+  <!-- Ambient hero background -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
 
   <!-- Nav -->
   <nav>
@@ -553,5 +720,30 @@
   </footer>
 
   <script src="/static/public-support.js"></script>
+  <script>
+    // Scroll-reveal with stagger
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const delay = parseInt(el.dataset.revealDelay || '0', 10);
+        setTimeout(() => el.classList.add('visible'), delay);
+        revealObserver.unobserve(el);
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    function scheduleReveal(selector, staggerMs) {
+      document.querySelectorAll(selector).forEach((el, i) => {
+        el.classList.add('reveal');
+        el.dataset.revealDelay = i * staggerMs;
+        revealObserver.observe(el);
+      });
+    }
+
+    scheduleReveal('.feature-card', 80);
+    scheduleReveal('.step', 120);
+    scheduleReveal('.pricing-card', 120);
+    scheduleReveal('.section-label, .section-title', 0);
+  </script>
 </body>
 </html>
