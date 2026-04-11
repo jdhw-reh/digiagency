@@ -33,7 +33,11 @@
       top: 0;
       background: rgba(10,10,10,0.92);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       z-index: 10;
+      /* own compositing layer — prevents backdrop-filter recalculating on every scroll frame */
+      will-change: transform;
+      transform: translateZ(0);
     }
 
     .nav-brand {
@@ -407,10 +411,10 @@
     }
 
     @keyframes orbDrift {
-      0%, 100% { transform: translate(0px, 0px) scale(1); }
-      25%       { transform: translate(60px, -45px) scale(1.07); }
-      55%       { transform: translate(-35px, 55px) scale(0.94); }
-      80%       { transform: translate(40px, 20px) scale(1.04); }
+      0%, 100% { transform: translateZ(0) translate(0px, 0px); }
+      25%       { transform: translateZ(0) translate(60px, -45px); }
+      55%       { transform: translateZ(0) translate(-35px, 55px); }
+      80%       { transform: translateZ(0) translate(40px, 20px); }
     }
 
     @keyframes starSpin {
@@ -428,12 +432,17 @@
       pointer-events: none;
       z-index: 0;
       overflow: hidden;
+      /* isolate compositing so orbs don't interact with backdrop-filter on nav */
+      contain: layout style;
     }
 
     .orb {
       position: absolute;
       border-radius: 50%;
-      filter: blur(100px);
+      filter: blur(80px);
+      /* promote to GPU compositor layer — prevents scroll-time repaints */
+      will-change: transform;
+      transform: translateZ(0);
     }
 
     .orb-1 {
@@ -548,6 +557,76 @@
       box-shadow: 0 0 50px rgba(99,102,241,0.16), 0 0 0 1px rgba(99,102,241,0.55);
     }
 
+    /* ── Floating output chips ── */
+    @keyframes chipFloat {
+      0%, 100% { transform: translateZ(0) translateY(0px); }
+      50%       { transform: translateZ(0) translateY(-12px); }
+    }
+
+    .hero-chip {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(16,16,16,0.95);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      padding: 12px 16px;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5),
+                  inset 0 1px 0 rgba(255,255,255,0.04);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      will-change: transform;
+      animation: chipFloat var(--fd, 5s) ease-in-out var(--fdel, 0s) infinite;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hero-chip.visible { opacity: 1; }
+
+    .chip-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+    .chip-body { display: flex; flex-direction: column; gap: 2px; }
+
+    .chip-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6366f1;
+    }
+
+    .chip-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e5e5e5;
+    }
+
+    .chip-check {
+      color: #4ade80;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
+
+    /*
+      Chips are anchored to the edges of the 720px text column.
+      right: calc(50% + 370px) = chip's right edge sits 10px to the left of the text column's left edge.
+      left:  calc(50% + 370px) = chip's left  edge sits 10px to the right of the text column's right edge.
+      Visible only when viewport ≥ 1220px (below that, chips would overlap text or clip).
+    */
+    .chip-1 { --fd: 4.5s; --fdel:  0.0s; top: 120px; right: calc(50% + 370px); }
+    .chip-2 { --fd: 5.2s; --fdel: -2.0s; top: 298px; right: calc(50% + 385px); }
+    .chip-3 { --fd: 4.8s; --fdel: -1.2s; top:  90px; left:  calc(50% + 370px); }
+    .chip-4 { --fd: 5.5s; --fdel: -3.1s; top: 278px; left:  calc(50% + 385px); }
+
+    @media (max-width: 1219px) {
+      .hero-chip { display: none; }
+    }
+
     /* ── Reduced motion ── */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -581,12 +660,50 @@
   </nav>
 
   <!-- Hero -->
-  <div class="hero">
-    <span class="hero-badge">✦ AI-powered marketing</span>
-    <h1>Your AI marketing team, starting from £29/month</h1>
-    <p>Six specialist tools — content, social, SEO, video, and more — all in one place. No agency fees, no waiting.</p>
-    <a href="/login" class="btn-primary">Get started</a>
-  </div>
+  <section class="hero-section">
+    <div class="hero">
+      <span class="hero-badge">✦ AI-powered marketing</span>
+      <h1>Your AI marketing team, starting from £29/month</h1>
+      <p>Six specialist tools — content, social, SEO, video, and more — all in one place. No agency fees, no waiting.</p>
+      <a href="/login" class="btn-primary">Get started</a>
+    </div>
+
+    <div class="hero-chip chip-1" aria-hidden="true">
+      <span class="chip-icon">✍️</span>
+      <div class="chip-body">
+        <div class="chip-label">Content Team</div>
+        <div class="chip-text">Blog post · 1,240 words</div>
+      </div>
+      <span class="chip-check">✓</span>
+    </div>
+
+    <div class="hero-chip chip-2" aria-hidden="true">
+      <span class="chip-icon">🔍</span>
+      <div class="chip-body">
+        <div class="chip-label">SEO Audit</div>
+        <div class="chip-text">Score: 62 → 91</div>
+      </div>
+      <span class="chip-check">✓</span>
+    </div>
+
+    <div class="hero-chip chip-3" aria-hidden="true">
+      <span class="chip-icon">📣</span>
+      <div class="chip-body">
+        <div class="chip-label">Social Team</div>
+        <div class="chip-text">3 posts generated</div>
+      </div>
+      <span class="chip-check">✓</span>
+    </div>
+
+    <div class="hero-chip chip-4" aria-hidden="true">
+      <span class="chip-icon">🎬</span>
+      <div class="chip-body">
+        <div class="chip-label">Video Director</div>
+        <div class="chip-text">Script · 6 scenes</div>
+      </div>
+      <span class="chip-check">✓</span>
+    </div>
+  </section>
 
   <!-- Features -->
   <section id="features">
@@ -744,6 +861,11 @@
     scheduleReveal('.step', 120);
     scheduleReveal('.pricing-card', 120);
     scheduleReveal('.section-label, .section-title', 0);
+
+    // Reveal hero chips after hero text has animated in (~1s)
+    document.querySelectorAll('.hero-chip').forEach((chip, i) => {
+      setTimeout(() => chip.classList.add('visible'), 1000 + i * 180);
+    });
   </script>
 </body>
 </html>
