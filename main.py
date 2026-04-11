@@ -115,7 +115,7 @@ _CANONICAL_DOMAIN = os.environ.get("CANONICAL_DOMAIN", "digi-agency.co.uk")
 @app.middleware("http")
 async def canonical_domain_redirect(request: Request, call_next):
     host = request.headers.get("host", "")
-    if "railway.app" in host and _CANONICAL_DOMAIN:
+    if "railway.app" in host and _CANONICAL_DOMAIN and request.url.path != "/health":
         path = request.url.path
         query = f"?{request.url.query}" if request.url.query else ""
         return RedirectResponse(f"https://{_CANONICAL_DOMAIN}{path}{query}", status_code=301)
