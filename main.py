@@ -5,6 +5,7 @@ Run with: uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
 import json
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -102,6 +103,22 @@ async def require_active_subscription(request: Request, call_next):
             return JSONResponse({"error": "No active subscription"}, status_code=402)
         return RedirectResponse("/login")
 
+    return await call_next(request)
+
+# ---------------------------------------------------------------------------
+# Canonical domain — redirect railway.app URLs to the custom domain
+# Runs outermost (defined last), so it fires before auth middleware.
+# ---------------------------------------------------------------------------
+
+_CANONICAL_DOMAIN = os.environ.get("CANONICAL_DOMAIN", "digi-agency.co.uk")
+
+@app.middleware("http")
+async def canonical_domain_redirect(request: Request, call_next):
+    host = request.headers.get("host", "")
+    if "railway.app" in host and _CANONICAL_DOMAIN:
+        path = request.url.path
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"https://{_CANONICAL_DOMAIN}{path}{query}", status_code=301)
     return await call_next(request)
 
 # ---------------------------------------------------------------------------
