@@ -11,6 +11,16 @@ document.addEventListener("DOMContentLoaded", () => {
       window.navigateTo(el.dataset.view);
     });
   });
+
+  // Activity feed toggle
+  const toggle = document.getElementById("activity-toggle");
+  const body = document.getElementById("activity-body");
+  if (toggle && body) {
+    toggle.addEventListener("click", () => {
+      const isOpen = body.classList.toggle("is-open");
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

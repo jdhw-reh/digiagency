@@ -169,11 +169,18 @@
       </div>
 
       <div class="activity-section">
-        <div class="activity-label">What's been happening</div>
-        <ul id="activity-feed" class="activity-feed">
-          <li class="activity-empty">No activity yet</li>
-        </ul>
-        <button id="activity-more-btn" class="activity-more" style="display:none">Show more</button>
+        <button class="activity-toggle" id="activity-toggle" aria-expanded="false">
+          <span>What's been happening</span>
+          <svg class="activity-toggle-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5L7 9L11 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="activity-body" id="activity-body">
+          <ul id="activity-feed" class="activity-feed">
+            <li class="activity-empty">No activity yet</li>
+          </ul>
+          <button id="activity-more-btn" class="activity-more" style="display:none">Show more</button>
+        </div>
       </div>
     </div>
 
