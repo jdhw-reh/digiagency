@@ -7,7 +7,7 @@
 const AUDIT_SESSION_KEY = "agency_seo_audit_session";
 
 const AUDIT_STAGES = {
-  idle:                { start: true,  analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
+  idle:                { start: true,  analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: true  },
   auditing:            { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
   awaiting_analyse:    { start: false, analyse: true,  recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: true  },
   analysing:           { start: false, analyse: false, recommend: false, implement: false, copy: false, download: false, saveNotion: false, reset: false },
@@ -48,6 +48,27 @@ const NEXT_BAR_CONFIG = {
 // ---------------------------------------------------------------------------
 
 const $au = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Mobile carousel helpers
+// ---------------------------------------------------------------------------
+
+const AUDIT_PANEL_ORDER = ['audit-panel-auditor', 'audit-panel-analyser', 'audit-panel-recommender', 'audit-panel-implementer'];
+
+function auditScrollToPanel(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  const grid = document.querySelector('#view-seo-audit .panel-grid');
+  const panel = document.getElementById(panelId);
+  if (!grid || !panel) return;
+  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
+}
+
+function auditUpdateCarouselDots(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  document.querySelectorAll('#audit-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
+  });
+}
 
 function getAuditUi() {
   return {
@@ -179,6 +200,9 @@ function setAuditStage(stage) {
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
     $au(`audit-panel-${activePanel}`).classList.add("panel--active");
+    // Auto-advance carousel on mobile
+    auditScrollToPanel(`audit-panel-${activePanel}`);
+    auditUpdateCarouselDots(`audit-panel-${activePanel}`);
   }
 
   updateAuditPipeline(stage);
@@ -676,6 +700,24 @@ function viewDidMount_seoAudit() {
   try {
     sau = getAuditUi();
     wireAuditButtons();
+
+    // Carousel: dot tap targets
+    document.querySelectorAll('#audit-carousel-dots .carousel-dot').forEach((dot) => {
+      dot.addEventListener('click', () => {
+        auditScrollToPanel(dot.dataset.panel);
+        auditUpdateCarouselDots(dot.dataset.panel);
+      });
+    });
+
+    // Carousel: keep dots in sync with manual swipes
+    const _auditGrid = document.querySelector('#view-seo-audit .panel-grid');
+    if (_auditGrid) {
+      _auditGrid.addEventListener('scroll', () => {
+        if (!window.matchMedia('(max-width: 480px)').matches) return;
+        const idx = Math.round(_auditGrid.scrollLeft / _auditGrid.offsetWidth);
+        auditUpdateCarouselDots(AUDIT_PANEL_ORDER[Math.min(idx, AUDIT_PANEL_ORDER.length - 1)]);
+      }, { passive: true });
+    }
   } catch (e) {
     console.error("SEO Audit init error:", e);
     _auditInitialized = false; // allow retry on next navigation

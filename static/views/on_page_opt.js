@@ -10,7 +10,7 @@ const OPT_SESSION_KEY = "agency_on_page_opt_session";
 // Stages are shared across both modes — the mode field on the session determines
 // which backend endpoints are called.
 const OPT_STAGES = {
-  idle:              { startReview: true,  startBuild: true,  nextStep: false, copy: false, saveNotion: false, reset: false },
+  idle:              { startReview: true,  startBuild: true,  nextStep: false, copy: false, saveNotion: false, reset: true  },
   analysing:         { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
   awaiting_rewrite:  { startReview: false, startBuild: false, nextStep: true,  copy: false, saveNotion: false, reset: true  },
   rewriting:         { startReview: false, startBuild: false, nextStep: false, copy: false, saveNotion: false, reset: false },
@@ -45,6 +45,27 @@ const OPT_PIPELINE = {
 // ---------------------------------------------------------------------------
 
 const $op = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Mobile carousel helpers
+// ---------------------------------------------------------------------------
+
+const OPT_PANEL_ORDER = ['opt-panel-a', 'opt-panel-b'];
+
+function optScrollToPanel(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  const grid = document.querySelector('#view-on-page-opt .panel-grid--2col');
+  const panel = document.getElementById(panelId);
+  if (!grid || !panel) return;
+  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
+}
+
+function optUpdateCarouselDots(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  document.querySelectorAll('#opt-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
+  });
+}
 
 function getOptUi() {
   return {
@@ -229,6 +250,9 @@ function setOptStage(stage) {
       statusEl.classList.add("running");
     }
     $op(`opt-${activePanel}`).classList.add("panel--active");
+    // Auto-advance carousel on mobile
+    optScrollToPanel(`opt-${activePanel}`);
+    optUpdateCarouselDots(`opt-${activePanel}`);
   }
 
   updateOptPipeline(stage);
@@ -693,6 +717,24 @@ function viewDidMount_onPageOpt() {
     opu = getOptUi();
     setModeUi("review");
     wireOptButtons();
+
+    // Carousel: dot tap targets
+    document.querySelectorAll('#opt-carousel-dots .carousel-dot').forEach((dot) => {
+      dot.addEventListener('click', () => {
+        optScrollToPanel(dot.dataset.panel);
+        optUpdateCarouselDots(dot.dataset.panel);
+      });
+    });
+
+    // Carousel: keep dots in sync with manual swipes
+    const _optGrid = document.querySelector('#view-on-page-opt .panel-grid--2col');
+    if (_optGrid) {
+      _optGrid.addEventListener('scroll', () => {
+        if (!window.matchMedia('(max-width: 480px)').matches) return;
+        const idx = Math.round(_optGrid.scrollLeft / _optGrid.offsetWidth);
+        optUpdateCarouselDots(OPT_PANEL_ORDER[Math.min(idx, OPT_PANEL_ORDER.length - 1)]);
+      }, { passive: true });
+    }
   } catch (e) {
     console.error("On-Page Opt init error:", e);
     _optInitialized = false;

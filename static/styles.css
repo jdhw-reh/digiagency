@@ -2942,8 +2942,11 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   /* Active view: allow vertical scrolling */
   .view--visible { overflow-y: auto; }
 
-  /* Content view uses carousel — must stay fixed-height so panels fill viewport */
-  #view-content.view--visible { overflow-y: hidden; }
+  /* All carousel views must stay fixed-height so panels fill viewport */
+  #view-content.view--visible,
+  #view-social.view--visible,
+  #view-seo-audit.view--visible,
+  #view-on-page-opt.view--visible { overflow-y: hidden; }
 
   /* View header: left padding clears the hamburger button */
   .view-header { padding-left: 60px; }
@@ -2977,8 +2980,11 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     align-items: center;
   }
 
-  /* Content team: horizontal scroll-snap carousel */
-  #view-content .panel-grid {
+  /* Horizontal scroll-snap carousel — all team views */
+  #view-content .panel-grid,
+  #view-social .panel-grid,
+  #view-seo-audit .panel-grid,
+  #view-on-page-opt .panel-grid--2col {
     display: flex;
     flex-direction: row;
     overflow-x: scroll;
@@ -2988,33 +2994,52 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     padding: 0;
     gap: 0;
   }
-  #view-content .panel-grid::-webkit-scrollbar { display: none; }
+  #view-content .panel-grid::-webkit-scrollbar,
+  #view-social .panel-grid::-webkit-scrollbar,
+  #view-seo-audit .panel-grid::-webkit-scrollbar,
+  #view-on-page-opt .panel-grid--2col::-webkit-scrollbar { display: none; }
 
-  #view-content .panel-grid > .panel {
+  /* Each panel fills the viewport — use align-self stretch (no height:100% needed) */
+  #view-content .panel-grid > .panel,
+  #view-social .panel-grid > .panel,
+  #view-seo-audit .panel-grid > .panel,
+  #view-on-page-opt .panel-grid--2col > .panel {
     flex: 0 0 100vw;
     width: 100vw;
     max-height: none;
-    height: 100%;
+    min-height: 0;
+    align-self: stretch;
     scroll-snap-align: start;
     border-radius: 0;
     box-shadow: none;
   }
 
-  #view-content .panel-grid > .panel:hover { transform: none; }
+  #view-content .panel-grid > .panel:hover,
+  #view-social .panel-grid > .panel:hover,
+  #view-seo-audit .panel-grid > .panel:hover,
+  #view-on-page-opt .panel-grid--2col > .panel:hover { transform: none; }
 
-  /* All other views keep single-column stack */
-  .panel-grid:not(#view-content .panel-grid),
-  .panel-grid--2col {
+  /* Non-carousel views keep single-column stack */
+  .panel-grid:not(#view-content .panel-grid):not(#view-social .panel-grid):not(#view-seo-audit .panel-grid) {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+  .panel-grid--2col:not(#view-on-page-opt .panel-grid--2col) {
     grid-template-columns: 1fr;
     padding: 12px;
     gap: 12px;
   }
 
-  /* Non-content panels retain reasonable height */
-  .panel-grid:not(#view-content .panel-grid) > .panel { max-height: 420px; }
+  /* Non-carousel panels retain reasonable height */
+  .panel-grid:not(#view-content .panel-grid):not(#view-social .panel-grid):not(#view-seo-audit .panel-grid) > .panel,
+  .panel-grid--2col:not(#view-on-page-opt .panel-grid--2col) > .panel { max-height: 420px; }
 
-  /* Dot indicators */
-  #view-content .carousel-dots {
+  /* Dot indicators — shown for all carousel views */
+  #view-content .carousel-dots,
+  #view-social .carousel-dots,
+  #view-seo-audit .carousel-dots,
+  #view-on-page-opt .carousel-dots {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3036,10 +3061,11 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     padding: 0;
   }
 
-  .carousel-dot.carousel-dot--active {
-    background: #6366f1;
-    transform: scale(1.25);
-  }
+  /* Active dot colours match team accent */
+  #view-content .carousel-dot--active  { background: #6366f1; transform: scale(1.25); }
+  #view-social .carousel-dot--active   { background: #14b8a6; transform: scale(1.25); }
+  #view-seo-audit .carousel-dot--active { background: #8b5cf6; transform: scale(1.25); }
+  #view-on-page-opt .carousel-dot--active { background: #10b981; transform: scale(1.25); }
 
   /* Nav touch targets */
   .nav-link,

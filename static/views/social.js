@@ -7,7 +7,7 @@
 const SOCIAL_SESSION_KEY = "agency_social_session";
 
 const SOCIAL_STAGES = {
-  idle:           { scout: true,  strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
+  idle:           { scout: true,  strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: true  },
   scouting:       { scout: false, strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
   awaiting_idea:  { scout: false, strategise: true,  write: false, save: false, copy: false, downloadCsv: false, reset: true  },
   strategising:   { scout: false, strategise: false, write: false, save: false, copy: false, downloadCsv: false, reset: false },
@@ -87,6 +87,27 @@ function detectPlatformFromUrl(url) {
 // ---------------------------------------------------------------------------
 
 const $s = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Mobile carousel helpers
+// ---------------------------------------------------------------------------
+
+const SOCIAL_PANEL_ORDER = ['social-panel-scout', 'social-panel-strategist', 'social-panel-copywriter'];
+
+function socialScrollToPanel(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  const grid = document.querySelector('#view-social .panel-grid');
+  const panel = document.getElementById(panelId);
+  if (!grid || !panel) return;
+  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
+}
+
+function socialUpdateCarouselDots(panelId) {
+  if (!window.matchMedia('(max-width: 480px)').matches) return;
+  document.querySelectorAll('#social-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
+  });
+}
 
 function getSocialUi() {
   return {
@@ -238,6 +259,9 @@ function setSocialStage(stage) {
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
     $s(`social-panel-${activePanel}`).classList.add("panel--active");
+    // Auto-advance carousel on mobile
+    socialScrollToPanel(`social-panel-${activePanel}`);
+    socialUpdateCarouselDots(`social-panel-${activePanel}`);
   }
 
   updateSocialPipeline(stage);
@@ -702,6 +726,25 @@ function viewDidMount_social() {
 
   sui = getSocialUi();
   wireSocialButtons();
+
+  // Carousel: dot tap targets
+  document.querySelectorAll('#social-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.addEventListener('click', () => {
+      socialScrollToPanel(dot.dataset.panel);
+      socialUpdateCarouselDots(dot.dataset.panel);
+    });
+  });
+
+  // Carousel: keep dots in sync with manual swipes
+  const _socialGrid = document.querySelector('#view-social .panel-grid');
+  if (_socialGrid) {
+    _socialGrid.addEventListener('scroll', () => {
+      if (!window.matchMedia('(max-width: 480px)').matches) return;
+      const idx = Math.round(_socialGrid.scrollLeft / _socialGrid.offsetWidth);
+      socialUpdateCarouselDots(SOCIAL_PANEL_ORDER[Math.min(idx, SOCIAL_PANEL_ORDER.length - 1)]);
+    }, { passive: true });
+  }
+
   initSocialSession().catch((e) => showSocialError(`Failed to initialise session: ${e.message}`));
 }
 
