@@ -12,15 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Activity feed toggle
-  const toggle = document.getElementById("activity-toggle");
-  const body = document.getElementById("activity-body");
-  if (toggle && body) {
-    toggle.addEventListener("click", () => {
-      const isOpen = body.classList.toggle("is-open");
-      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    });
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -186,6 +177,16 @@ function stopNotificationStream() {
 function viewDidMount_home() {
   loadDirectorSummary();
   startNotificationStream();
+
+  // Wire activity toggle (must happen here, not DOMContentLoaded, as this is a SPA)
+  const toggle = document.getElementById("activity-toggle");
+  const body = document.getElementById("activity-body");
+  if (toggle && body) {
+    toggle.onclick = () => {
+      const isOpen = body.classList.toggle("is-open");
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    };
+  }
 }
 
 function viewWillUnmount_home() {
