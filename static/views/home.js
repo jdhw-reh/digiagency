@@ -52,25 +52,67 @@ const TEAM_LABELS = {
   on_page_opt: "On-Page Optimiser",
 };
 
+const ACTIVITY_LIMIT = 7;
+
+function cleanAction(action) {
+  if (!action) return null;
+  // Strip trailing colon + whitespace (e.g. "Built page:" with nothing after)
+  const trimmed = action.replace(/:\s*$/, "").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function renderActivityFeed(items) {
   const feed = document.getElementById("activity-feed");
+  const moreBtn = document.getElementById("activity-more-btn");
   if (!feed) return;
 
   if (!items || items.length === 0) {
     feed.innerHTML = '<li class="activity-empty">No activity yet</li>';
+    if (moreBtn) moreBtn.style.display = "none";
     return;
   }
 
-  feed.innerHTML = items
-    .map(
-      (item) => `
-    <li class="activity-item">
-      <span class="activity-dot activity-dot--${item.team}"></span>
-      <span class="activity-text"><strong>${TEAM_LABELS[item.team] || item.team}</strong> — ${item.action}</span>
+  const visible = items.slice(0, ACTIVITY_LIMIT);
+  const overflow = items.length - ACTIVITY_LIMIT;
+
+  feed.innerHTML = visible
+    .map((item) => {
+      const label = TEAM_LABELS[item.team] || item.team;
+      const action = cleanAction(item.action);
+      return `
+    <li class="activity-item activity-item--${item.team}">
+      <span class="activity-team">${label}</span>
+      <span class="activity-action">${action ? action : '<em style="color:var(--text-dim)">in progress</em>'}</span>
       <span class="activity-time">${timeAgo(item.ts)}</span>
-    </li>`
-    )
+    </li>`;
+    })
     .join("");
+
+  if (moreBtn) {
+    if (overflow > 0) {
+      moreBtn.textContent = `${overflow} more item${overflow > 1 ? "s" : ""}`;
+      moreBtn.style.display = "block";
+      moreBtn.onclick = () => {
+        // Render all items and hide the button
+        feed.innerHTML += items
+          .slice(ACTIVITY_LIMIT)
+          .map((item) => {
+            const label = TEAM_LABELS[item.team] || item.team;
+            const action = cleanAction(item.action);
+            return `
+          <li class="activity-item activity-item--${item.team}">
+            <span class="activity-team">${label}</span>
+            <span class="activity-action">${action ? action : '<em style="color:var(--text-dim)">in progress</em>'}</span>
+            <span class="activity-time">${timeAgo(item.ts)}</span>
+          </li>`;
+          })
+          .join("");
+        moreBtn.style.display = "none";
+      };
+    } else {
+      moreBtn.style.display = "none";
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
