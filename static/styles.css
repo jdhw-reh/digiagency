@@ -2942,6 +2942,9 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   /* Active view: allow vertical scrolling */
   .view--visible { overflow-y: auto; }
 
+  /* Content view uses carousel — must stay fixed-height so panels fill viewport */
+  #view-content.view--visible { overflow-y: hidden; }
+
   /* View header: left padding clears the hamburger button */
   .view-header { padding-left: 60px; }
 
