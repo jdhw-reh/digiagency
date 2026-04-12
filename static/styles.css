@@ -2974,16 +2974,69 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     align-items: center;
   }
 
-  /* Panel grid: single column */
-  .panel-grid,
+  /* Content team: horizontal scroll-snap carousel */
+  #view-content .panel-grid {
+    display: flex;
+    flex-direction: row;
+    overflow-x: scroll;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0;
+    gap: 0;
+  }
+  #view-content .panel-grid::-webkit-scrollbar { display: none; }
+
+  #view-content .panel-grid > .panel {
+    flex: 0 0 100vw;
+    width: 100vw;
+    max-height: none;
+    height: 100%;
+    scroll-snap-align: start;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #view-content .panel-grid > .panel:hover { transform: none; }
+
+  /* All other views keep single-column stack */
+  .panel-grid:not(#view-content .panel-grid),
   .panel-grid--2col {
     grid-template-columns: 1fr;
     padding: 12px;
     gap: 12px;
   }
 
-  /* Panel: reasonable height on mobile */
-  .panel { max-height: 420px; }
+  /* Non-content panels retain reasonable height */
+  .panel-grid:not(#view-content .panel-grid) > .panel { max-height: 420px; }
+
+  /* Dot indicators */
+  #view-content .carousel-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 0 6px;
+    flex-shrink: 0;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .carousel-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border-mid);
+    transition: background 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  .carousel-dot.carousel-dot--active {
+    background: #6366f1;
+    transform: scale(1.25);
+  }
 
   /* Nav touch targets */
   .nav-link,
@@ -3041,6 +3094,9 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     justify-content: space-between;
   }
 }
+
+/* Carousel dots: hidden on desktop, shown on mobile via media query */
+.carousel-dots { display: none; }
 
 /* ============================================================
    Markdown output — prose styles

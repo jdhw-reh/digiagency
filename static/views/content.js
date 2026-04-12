@@ -7,7 +7,7 @@
 const SESSION_KEY = "agency_content_session";
 
 const STAGES = {
-  idle:           { research: true,  plan: false, write: false, save: false, copy: false, download: false, reset: false },
+  idle:           { research: true,  plan: false, write: false, save: false, copy: false, download: false, reset: true  },
   researching:    { research: false, plan: false, write: false, save: false, copy: false, download: false, reset: false },
   awaiting_topic: { research: false, plan: true,  write: false, save: false, copy: false, download: false, reset: true  },
   planning:       { research: false, plan: false, write: false, save: false, copy: false, download: false, reset: false },
@@ -39,6 +39,31 @@ const PIPELINE_STATE = {
 // ---------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Mobile carousel helpers
+// ---------------------------------------------------------------------------
+
+function isMobileCarousel() {
+  return window.matchMedia('(max-width: 480px)').matches;
+}
+
+const PANEL_ORDER = ['panel-researcher', 'panel-planner', 'panel-writer'];
+
+function scrollToPanel(panelId) {
+  if (!isMobileCarousel()) return;
+  const grid = document.querySelector('#view-content .panel-grid');
+  const panel = document.getElementById(panelId);
+  if (!grid || !panel) return;
+  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
+}
+
+function updateCarouselDots(panelId) {
+  if (!isMobileCarousel()) return;
+  document.querySelectorAll('#content-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
+  });
+}
 
 function getUi() {
   return {
@@ -134,6 +159,14 @@ function restoreState(state) {
     ? "idle"
     : state.stage || "idle";
   setStage(safeStage);
+
+  // On mobile, scroll to the restored panel after layout
+  if (isMobileCarousel()) {
+    requestAnimationFrame(() => {
+      const ap = STAGE_ACTIVE_PANEL[safeStage];
+      if (ap) { scrollToPanel(`panel-${ap}`); updateCarouselDots(`panel-${ap}`); }
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +200,9 @@ function setStage(stage) {
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
     $(`panel-${activePanel}`).classList.add("panel--active");
+    // Auto-advance carousel on mobile
+    scrollToPanel(`panel-${activePanel}`);
+    updateCarouselDots(`panel-${activePanel}`);
   }
 
   updatePipeline(stage);
@@ -512,6 +548,25 @@ function viewDidMount_content() {
 
   ui = getUi();
   wireButtons();
+
+  // Carousel: dot tap targets
+  document.querySelectorAll('#content-carousel-dots .carousel-dot').forEach((dot) => {
+    dot.addEventListener('click', () => {
+      scrollToPanel(dot.dataset.panel);
+      updateCarouselDots(dot.dataset.panel);
+    });
+  });
+
+  // Carousel: keep dots in sync with manual swipes
+  const _carouselGrid = document.querySelector('#view-content .panel-grid');
+  if (_carouselGrid) {
+    _carouselGrid.addEventListener('scroll', () => {
+      if (!isMobileCarousel()) return;
+      const idx = Math.round(_carouselGrid.scrollLeft / _carouselGrid.offsetWidth);
+      updateCarouselDots(PANEL_ORDER[Math.min(idx, PANEL_ORDER.length - 1)]);
+    }, { passive: true });
+  }
+
   initSession().catch((e) => showError(`Failed to initialise session: ${e.message}`));
 }
 
