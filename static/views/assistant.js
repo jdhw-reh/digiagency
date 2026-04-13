@@ -300,6 +300,16 @@ async function sendMessage() {
       aui.input.disabled = false;
       aui.btnAttach.disabled = false;
       aui.input.focus();
+    } else if (msg.type === "error") {
+      es.close();
+      const cursor = bubble.querySelector(".stream-cursor");
+      if (cursor) cursor.remove();
+      bubble.innerHTML = msg.message || "Something went wrong. Please try again.";
+      bubble.style.color = "var(--danger)";
+      _asstIsResponding = false;
+      aui.btnSend.disabled = false;
+      aui.input.disabled = false;
+      aui.btnAttach.disabled = false;
     }
   };
 

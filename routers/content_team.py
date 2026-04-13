@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.content import researcher, planner, writer
 from services.notion import create_article_page
 from services.agency_log import log_task
@@ -118,6 +118,9 @@ async def select_topic(payload: SelectTopicPayload):
 @router.get("/stream/research")
 async def stream_research(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "content", _SESSION_DEFAULTS)
+    if session["stage"] == "researching":
+        # SSE connection likely dropped (common on iPad/Safari) — auto-reset and continue
+        session["stage"] = "idle"
     if session["stage"] not in ("idle",):
         return JSONResponse({"error": "Session not in idle stage"}, status_code=400)
 
@@ -139,7 +142,11 @@ async def stream_research(session_id: str, agency_token: str | None = Cookie(def
             if isinstance(chunk, str):
                 yield sse_chunk(chunk)
             elif isinstance(chunk, dict):
-                if chunk.get("type") == "topics":
+                if chunk.get("type") == "error":
+                    session["stage"] = "idle"
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                elif chunk.get("type") == "topics":
                     session["topics"] = chunk.get("data", [])
                     session["stage"] = "awaiting_topic"
                     await save_session(session_id, session)
@@ -165,11 +172,17 @@ async def stream_plan(session_id: str, agency_token: str | None = Cookie(default
 
     async def event_generator():
         async for chunk in planner.run(session["selected_topic"], session["business_context"], api_key=api_key):
-            brief_parts.append(chunk)
-            yield sse_chunk(chunk)
-        session["brief"] = "".join(brief_parts)
-        session["stage"] = "awaiting_write"
-        await save_session(session_id, session)
+            if isinstance(chunk, dict) and chunk.get("type") == "error":
+                session["stage"] = "awaiting_topic"
+                await save_session(session_id, session)
+                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+            else:
+                brief_parts.append(chunk)
+                yield sse_chunk(chunk)
+        if brief_parts:
+            session["brief"] = "".join(brief_parts)
+            session["stage"] = "awaiting_write"
+            await save_session(session_id, session)
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -194,14 +207,20 @@ async def stream_write(session_id: str, agency_token: str | None = Cookie(defaul
         async for chunk in writer.run(
             session["brief"], session["selected_topic"], session["business_context"], api_key=api_key
         ):
-            article_parts.append(chunk)
-            yield sse_chunk(chunk)
-        session["article"] = "".join(article_parts)
-        session["stage"] = "done"
-        await save_session(session_id, session)
-        if email and session["article"]:
-            title = (session.get("selected_topic") or {}).get("title", "Article")
-            await log_history_item(email, "Content Team", title, session["article"])
+            if isinstance(chunk, dict) and chunk.get("type") == "error":
+                session["stage"] = "awaiting_write"
+                await save_session(session_id, session)
+                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+            else:
+                article_parts.append(chunk)
+                yield sse_chunk(chunk)
+        if article_parts:
+            session["article"] = "".join(article_parts)
+            session["stage"] = "done"
+            await save_session(session_id, session)
+            if email and session["article"]:
+                title = (session.get("selected_topic") or {}).get("title", "Article")
+                await log_history_item(email, "Content Team", title, session["article"])
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

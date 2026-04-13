@@ -210,6 +210,7 @@ function startSSE(endpoint, { onChunk, onTopics, onDone, onError }) {
     if (msg.type === "chunk" && onChunk)       onChunk(msg.text);
     else if (msg.type === "topics" && onTopics) onTopics(msg.data);
     else if (msg.type === "done") { es.close(); if (onDone) onDone(); }
+    else if (msg.type === "error") { es.close(); if (onError) onError(msg.message || "An error occurred."); }
   };
 
   es.onerror = () => {

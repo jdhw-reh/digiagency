@@ -12,9 +12,7 @@ Events handled:
 import asyncio
 import json
 import os
-import smtplib
 import time
-from email.mime.text import MIMEText
 
 import httpx
 import stripe
@@ -28,32 +26,31 @@ _ADMIN_EMAIL = "digi.admin.ai@gmail.com"
 router = APIRouter()
 
 
-def _send_email(subject: str, body: str) -> None:
-    """Send a plain-text email to the admin Gmail account."""
-    password = os.environ.get("GMAIL_APP_PASSWORD")
-    if not password:
-        print("[email] GMAIL_APP_PASSWORD not set — skipping email")
+async def _send_email(subject: str, body: str) -> None:
+    """Send a plain-text email to the admin via Resend API."""
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        print("[email] RESEND_API_KEY not set — skipping email")
         return
     print(f"[email] Attempting to send: {subject}")
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = _ADMIN_EMAIL
-    msg["To"] = _ADMIN_EMAIL
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
-            server.login(_ADMIN_EMAIL, password)
-            server.send_message(msg)
-        print("[email] Sent successfully")
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "from": "Digi Agency <onboarding@resend.dev>",
+                    "to": [_ADMIN_EMAIL],
+                    "subject": subject,
+                    "text": body,
+                },
+            )
+        if res.status_code in (200, 201):
+            print("[email] Sent successfully")
+        else:
+            print(f"[email] Failed: {res.status_code} {res.text}")
     except Exception as exc:
-        print(f"[email] Failed (SSL/465): {exc}")
-        try:
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-                server.starttls()
-                server.login(_ADMIN_EMAIL, password)
-                server.send_message(msg)
-            print("[email] Sent successfully via STARTTLS/587")
-        except Exception as exc2:
-            print(f"[email] Failed (STARTTLS/587): {exc2}")
+        print(f"[email] Failed: {exc}")
 
 
 async def _notify_admin_new_signup(email: str, plan: str) -> None:
@@ -70,7 +67,7 @@ async def _notify_admin_new_signup(email: str, plan: str) -> None:
         f"Plan:  {plan_label}\n\n"
         f"Review at: https://digiagency.up.railway.app/admin"
     )
-    asyncio.create_task(asyncio.to_thread(_send_email, subject, body))
+    asyncio.create_task(_send_email(subject, body))
 
     webhook_url = os.environ.get("ADMIN_WEBHOOK_URL")
     if webhook_url:
@@ -113,6 +110,7 @@ async def stripe_webhook(request: Request):
 
     event_type = event.type
     obj = event.data.object
+    print(f"[webhook] event={event_type}")
 
     if event_type == "checkout.session.completed":
         email = getattr(obj, "client_reference_id", None)
@@ -146,7 +144,7 @@ async def stripe_webhook(request: Request):
                     f"Reason: {reason}\n\n"
                     f"Review at: https://digiagency.up.railway.app/admin"
                 )
-                asyncio.create_task(asyncio.to_thread(_send_email, subject, body))
+                asyncio.create_task(_send_email(subject, body))
 
     # Return 200 for all other event types so Stripe doesn't retry
     return {"ok": True}

@@ -98,7 +98,7 @@ async def run(topic: dict, business_context: str, api_key: str = ""):
         if msg_type == "chunk":
             yield value
         elif msg_type == "error":
-            yield f"\n\n[Planner error: {value}]"
+            yield {"type": "error", "message": value}
             break
         elif msg_type == "done":
             break

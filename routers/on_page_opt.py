@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.on_page_opt import analyser, researcher, copywriter
 from services.agency_log import log_task
 from services.notion_on_page import save_optimiser_report
@@ -127,9 +127,14 @@ async def reset_session(req: SessionRequest):
 # Review mode — Analyse existing copy
 # ---------------------------------------------------------------------------
 
+_STUCK_STAGES_OPT = {"analysing", "researching", "rewriting", "writing"}
+
 @router.post("/start-review")
 async def start_review(req: StartReviewRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] in _STUCK_STAGES_OPT:
+        # SSE connection likely dropped (common on iPad/Safari) — auto-reset and continue
+        sess["stage"] = "idle"
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
     sess["mode"] = "review"
@@ -178,7 +183,7 @@ async def stream_analysis(session_id: str, agency_token: str | None = Cookie(def
             elif kind == "error":
                 sess["stage"] = "idle"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -238,7 +243,7 @@ async def stream_rewrite(session_id: str, agency_token: str | None = Cookie(defa
             elif kind == "error":
                 sess["stage"] = "awaiting_rewrite"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -251,6 +256,9 @@ async def stream_rewrite(session_id: str, agency_token: str | None = Cookie(defa
 @router.post("/start-build")
 async def start_build(req: StartBuildRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "on_page_opt", _SESSION_DEFAULTS)
+    if sess["stage"] in _STUCK_STAGES_OPT:
+        # SSE connection likely dropped (common on iPad/Safari) — auto-reset and continue
+        sess["stage"] = "idle"
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
     sess["mode"] = "build"
@@ -304,7 +312,7 @@ async def stream_research(session_id: str, agency_token: str | None = Cookie(def
             elif kind == "error":
                 sess["stage"] = "idle"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -365,7 +373,7 @@ async def stream_copy(session_id: str, agency_token: str | None = Cookie(default
             elif kind == "error":
                 sess["stage"] = "awaiting_write"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)

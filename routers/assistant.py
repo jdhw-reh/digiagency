@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from fastapi import Cookie
 from state import get_session, save_session, get_user, get_activity_log, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.assistant import assistant
 
 router = APIRouter()
@@ -216,6 +216,12 @@ async def stream_response(session_id: str, agency_token: str | None = Cookie(def
             file_refs if file_refs else None,
             api_key=api_key,
         ):
+            if isinstance(chunk, dict) and chunk.get("type") == "error":
+                session["stage"] = "idle"
+                await save_session(session_id, session)
+                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                yield sse_done()
+                return
             response_parts.append(chunk)
             yield sse_chunk(chunk)
 

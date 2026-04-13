@@ -38,7 +38,7 @@ function getVideoUi() {
 // ---------------------------------------------------------------------------
 
 const VIDEO_STAGE_CONFIG = {
-  idle:      { direct: true,  copy: false, save: false, reset: false },
+  idle:      { direct: true,  copy: false, save: false, reset: true  },
   directing: { direct: false, copy: false, save: false, reset: false },
   done:      { direct: true,  copy: true,  save: true,  reset: true  },
 };

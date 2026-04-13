@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.video import director
 from services.notion_video import save_brief
 from services.agency_log import log_task
@@ -133,7 +133,11 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
                     text_parts.append(chunk)
                     yield sse_chunk(chunk)
                 elif isinstance(chunk, dict):
-                    if chunk.get("type") == "shots":
+                    if chunk.get("type") == "error":
+                        session["stage"] = "idle"
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                    elif chunk.get("type") == "shots":
                         data = chunk.get("data", {})
                         session["concept"] = data.get("concept", {})
                         session["shots"] = data.get("shots", [])

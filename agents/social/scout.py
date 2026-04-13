@@ -127,7 +127,7 @@ async def run(profile_url: str, description: str, platform: str, api_key: str = 
         if msg_type == "chunk":
             yield value
         elif msg_type == "error":
-            yield f"\n\n[Scout error: {value}]"
+            yield {"type": "error", "message": value}
             break
         elif msg_type == "done":
             break

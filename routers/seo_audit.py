@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.seo_audit import auditor, analyser, recommender, implementer
 from services.agency_log import log_task
 from services.notion_seo_audit import save_audit_report
@@ -91,9 +91,14 @@ async def get_state(session_id: str):
     return JSONResponse(sess)
 
 
+_STUCK_STAGES = {"auditing", "analysing", "recommending", "implementing"}
+
 @router.post("/start")
 async def start_audit(req: StartAuditRequest, agency_token: str | None = Cookie(default=None)):
     sess = await get_session(req.session_id, "seo_audit", _SESSION_DEFAULTS)
+    if sess["stage"] in _STUCK_STAGES:
+        # SSE connection likely dropped (common on iPad/Safari) — auto-reset and continue
+        sess["stage"] = "idle"
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Audit already in progress"}, status_code=400)
     sess["url"] = req.url
@@ -141,7 +146,7 @@ async def stream_audit(session_id: str, agency_token: str | None = Cookie(defaul
             elif kind == "error":
                 sess["stage"] = "idle"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -185,7 +190,7 @@ async def stream_analysis(session_id: str, agency_token: str | None = Cookie(def
             elif kind == "error":
                 sess["stage"] = "awaiting_analyse"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -229,7 +234,7 @@ async def stream_recommendations(session_id: str, agency_token: str | None = Coo
             elif kind == "error":
                 sess["stage"] = "awaiting_recommend"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -290,7 +295,7 @@ async def stream_implementation(session_id: str, agency_token: str | None = Cook
             elif kind == "error":
                 sess["stage"] = "awaiting_implement"
                 await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": value})
+                yield sse_event({"type": "error", "message": friendly_error(value)})
                 yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)

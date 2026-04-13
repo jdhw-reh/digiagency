@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
-from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event
+from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.social import scout, strategist, copywriter
 from services.notion_social import save_posts
 from services.agency_log import log_task
@@ -121,6 +121,9 @@ async def select_opportunity(payload: SelectOpportunityPayload):
 @router.get("/stream/scout")
 async def stream_scout(session_id: str, agency_token: str | None = Cookie(default=None)):
     session = await get_session(session_id, "social", _SESSION_DEFAULTS)
+    if session["stage"] == "scouting":
+        # SSE connection likely dropped (common on iPad/Safari) — auto-reset and continue
+        session["stage"] = "idle"
     if session["stage"] not in ("idle",):
         return JSONResponse({"error": "Session not in idle stage"}, status_code=400)
     if not session.get("profile_url"):
@@ -147,7 +150,11 @@ async def stream_scout(session_id: str, agency_token: str | None = Cookie(defaul
             if isinstance(chunk, str):
                 yield sse_chunk(chunk)
             elif isinstance(chunk, dict):
-                if chunk.get("type") == "opportunities":
+                if chunk.get("type") == "error":
+                    session["stage"] = "idle"
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                elif chunk.get("type") == "opportunities":
                     session["opportunities"] = chunk.get("data", [])
                     session["stage"] = "awaiting_idea"
                     await save_session(session_id, session)
@@ -179,11 +186,17 @@ async def stream_strategise(session_id: str, agency_token: str | None = Cookie(d
             session["detected_platform"],
             api_key=api_key,
         ):
-            calendar_parts.append(chunk)
-            yield sse_chunk(chunk)
-        session["calendar"] = "".join(calendar_parts)
-        session["stage"] = "awaiting_copy"
-        await save_session(session_id, session)
+            if isinstance(chunk, dict) and chunk.get("type") == "error":
+                session["stage"] = "awaiting_idea"
+                await save_session(session_id, session)
+                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+            else:
+                calendar_parts.append(chunk)
+                yield sse_chunk(chunk)
+        if calendar_parts:
+            session["calendar"] = "".join(calendar_parts)
+            session["stage"] = "awaiting_copy"
+            await save_session(session_id, session)
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -216,7 +229,11 @@ async def stream_write_posts(session_id: str, agency_token: str | None = Cookie(
                 post_text_parts.append(chunk)
                 yield sse_chunk(chunk)
             elif isinstance(chunk, dict):
-                if chunk.get("type") == "posts":
+                if chunk.get("type") == "error":
+                    session["stage"] = "awaiting_copy"
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                elif chunk.get("type") == "posts":
                     session["posts"] = chunk.get("data", [])
                     session["stage"] = "done"
                     await save_session(session_id, session)

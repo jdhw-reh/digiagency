@@ -112,7 +112,7 @@ async def run(business_context: str, api_key: str = ""):
         if msg_type == "chunk":
             yield value
         elif msg_type == "error":
-            yield f"\n\n[Researcher error: {value}]"
+            yield {"type": "error", "message": value}
             break
         elif msg_type == "done":
             break
