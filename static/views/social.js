@@ -92,21 +92,25 @@ const $s = (id) => document.getElementById(id);
 // Mobile carousel helpers
 // ---------------------------------------------------------------------------
 
-const SOCIAL_PANEL_ORDER = ['social-panel-scout', 'social-panel-strategist', 'social-panel-copywriter'];
+// ---------------------------------------------------------------------------
+// Accordion state map
+// ---------------------------------------------------------------------------
 
-function socialScrollToPanel(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  const grid = document.querySelector('#view-social .panel-grid');
-  const panel = document.getElementById(panelId);
-  if (!grid || !panel) return;
-  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
-}
+const SOCIAL_ACCORDION = {
+  idle:           { scout: 'active', strategist: 'locked',  copywriter: 'locked' },
+  scouting:       { scout: 'active', strategist: 'locked',  copywriter: 'locked' },
+  awaiting_idea:  { scout: 'active', strategist: 'locked',  copywriter: 'locked' },
+  strategising:   { scout: 'done',   strategist: 'active',  copywriter: 'locked' },
+  awaiting_copy:  { scout: 'done',   strategist: 'active',  copywriter: 'locked' },
+  writing_posts:  { scout: 'done',   strategist: 'done',    copywriter: 'active' },
+  done:           { scout: 'done',   strategist: 'done',    copywriter: 'done'   },
+};
 
-function socialUpdateCarouselDots(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  document.querySelectorAll('#social-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
-  });
+function updateSocialAccordion(stage) {
+  const acc = SOCIAL_ACCORDION[stage] || SOCIAL_ACCORDION.idle;
+  setPanelState($s('social-panel-scout'),      acc.scout);
+  setPanelState($s('social-panel-strategist'), acc.strategist);
+  setPanelState($s('social-panel-copywriter'), acc.copywriter);
 }
 
 function getSocialUi() {
@@ -199,6 +203,8 @@ function restoreSocialState(state) {
   if (state.calendar) {
     clearSocialEmptyState(sui.strategistOutput);
     sui.strategistOutput.innerHTML = renderMarkdown(state.calendar);
+    setPanelSummary($s('social-panel-scout'), '<span>Opportunities found</span>');
+    setPanelSummary($s('social-panel-strategist'), '<span>Calendar ready</span>');
   }
 
   if (state.opportunities && state.opportunities.length > 0) {
@@ -249,22 +255,15 @@ function setSocialStage(stage) {
     el.textContent = "";
     el.classList.remove("running");
   });
-  [sui.panelScout, sui.panelStrategist, sui.panelCopywriter].forEach((el) => {
-    el.classList.remove("panel--active");
-  });
-
   const activePanel = SOCIAL_STAGE_ACTIVE_PANEL[stage];
   if (activePanel) {
     const statusEl = $s(`social-${activePanel}-status`);
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
-    $s(`social-panel-${activePanel}`).classList.add("panel--active");
-    // Auto-advance carousel on mobile
-    socialScrollToPanel(`social-panel-${activePanel}`);
-    socialUpdateCarouselDots(`social-panel-${activePanel}`);
   }
 
   updateSocialPipeline(stage);
+  updateSocialAccordion(stage);
 }
 
 function updateSocialPipeline(stage) {
@@ -601,7 +600,7 @@ function wireSocialButtons() {
     let stratText = "";
     startSocialSSE("/api/social/stream/strategise", {
       onChunk: (text) => { stratText += text; appendToSocialOutput(sui.strategistOutput, stratText); },
-      onDone: () => { finaliseSocialOutput(sui.strategistOutput); setSocialStage("awaiting_copy"); },
+      onDone: () => { finaliseSocialOutput(sui.strategistOutput); setPanelSummary($s('social-panel-scout'), '<span>Opportunities found</span>'); setPanelSummary($s('social-panel-strategist'), '<span>Calendar ready</span>'); setSocialStage("awaiting_copy"); },
       onError: (msg) => { setSocialStage("awaiting_idea"); showSocialError(msg); },
     });
   });
@@ -625,7 +624,7 @@ function wireSocialButtons() {
         sui.panelCopywriter.classList.add("posts-ready");
         sui.postCount.textContent = `${n} post${n !== 1 ? "s" : ""}`;
       },
-      onDone: () => setSocialStage("done"),
+      onDone: () => { setPanelSummary($s('social-panel-copywriter'), '<span>Posts written</span>'); setSocialStage("done"); },
       onError: (msg) => { setSocialStage("awaiting_copy"); showSocialError(msg); },
     });
   });
@@ -727,23 +726,12 @@ function viewDidMount_social() {
   sui = getSocialUi();
   wireSocialButtons();
 
-  // Carousel: dot tap targets
-  document.querySelectorAll('#social-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.addEventListener('click', () => {
-      socialScrollToPanel(dot.dataset.panel);
-      socialUpdateCarouselDots(dot.dataset.panel);
-    });
+  // Wire Review buttons — each opens the drawer for its panel
+  ['social-panel-scout', 'social-panel-strategist', 'social-panel-copywriter'].forEach((id) => {
+    const panelEl = $s(id);
+    const btn = panelEl && panelEl.querySelector('.panel-review-btn');
+    if (btn) btn.addEventListener('click', () => openPanelDrawer(panelEl));
   });
-
-  // Carousel: keep dots in sync with manual swipes
-  const _socialGrid = document.querySelector('#view-social .panel-grid');
-  if (_socialGrid) {
-    _socialGrid.addEventListener('scroll', () => {
-      if (!window.matchMedia('(max-width: 480px)').matches) return;
-      const idx = Math.round(_socialGrid.scrollLeft / _socialGrid.offsetWidth);
-      socialUpdateCarouselDots(SOCIAL_PANEL_ORDER[Math.min(idx, SOCIAL_PANEL_ORDER.length - 1)]);
-    }, { passive: true });
-  }
 
   initSocialSession().catch((e) => showSocialError(`Failed to initialise session: ${e.message}`));
 }
