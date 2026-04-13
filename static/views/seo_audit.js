@@ -155,6 +155,7 @@ function restoreAuditState(state) {
     clearEmptyState(sau.implementerOutput);
     sau.implementerOutput.innerHTML = renderMarkdown(state.implementation);
     setPanelSummary(sau.panelImplementer, '<span>Implementation guide ready</span>');
+    showGuideActions();
   }
 
   if (state.recommendations) {
@@ -564,6 +565,7 @@ async function startImplement() {
       es.close();
       cursor.remove();
       setPanelSummary(sau.panelImplementer, '<span>Implementation guide ready</span>');
+      showGuideActions();
       setAuditStage("done");
     } else if (msg.type === "error") {
       es.close();
@@ -614,6 +616,48 @@ async function saveToNotion() {
     sau.btnSaveNotion.textContent = "Save to Notion";
   }
 }
+
+// ---------------------------------------------------------------------------
+// Guide actions — copy / download .docx for the implementation guide
+// ---------------------------------------------------------------------------
+
+function showGuideActions() {
+  const el = document.getElementById('audit-guide-actions');
+  if (el) el.classList.add('visible');
+}
+
+window.copyImplementerGuide = async function (btn) {
+  const text = (sau.implementerOutput.innerText || sau.implementerOutput.textContent || '').trim();
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function () { btn.textContent = orig; }, 2000);
+    }
+  } catch (e) {
+    showAuditError('Could not copy to clipboard');
+  }
+};
+
+window.downloadImplementerGuide = function () {
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SEO Implementation Guide</title></head><body>'
+    + sau.implementerOutput.innerHTML
+    + '</body></html>';
+  try {
+    const blob = window.htmlDocx ? window.htmlDocx.asBlob(html) : new Blob([html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'seo-implementation-guide.' + (window.htmlDocx ? 'docx' : 'doc');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showAuditError('Could not generate file');
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Copy report
@@ -680,6 +724,9 @@ async function resetAudit() {
   sau.analyserOutput.innerHTML    = '<div class="empty-state">Waiting for audit to complete…</div>';
   sau.recommenderOutput.innerHTML = '<div class="empty-state">Waiting for analysis to complete…</div>';
   sau.implementerOutput.innerHTML = '<div class="empty-state">Waiting for recommendations to complete…</div>';
+
+  const guideActionsEl = document.getElementById('audit-guide-actions');
+  if (guideActionsEl) guideActionsEl.classList.remove('visible');
 
   sau.btnSaveNotion.textContent = "Save to Notion";
 

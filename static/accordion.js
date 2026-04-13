@@ -41,9 +41,9 @@
   }
 
   /**
-   * Open the review drawer populated with a clone of panelEl's .panel-body.
-   * On mobile (<=480px) this renders as a bottom sheet via CSS.
-   * Footer CTAs are stripped from the clone — they're not actionable in the drawer.
+   * Open the review modal populated with a clone of panelEl's .panel-body.
+   * Footer CTAs are stripped from the clone — they're not actionable in the modal.
+   * Guide action buttons (copy/download) are re-wired after cloning.
    */
   function openPanelDrawer(panelEl) {
     const drawer  = document.getElementById('panel-drawer');
@@ -57,8 +57,20 @@
 
     const panelBody = panelEl.querySelector('.panel-body');
     bodyEl.innerHTML = panelBody ? panelBody.innerHTML : '';
-    // Strip footer CTAs — not actionable from within the drawer
+    // Strip footer CTAs — not actionable from within the modal
     bodyEl.querySelectorAll('.panel-footer').forEach(function (el) { el.remove(); });
+
+    // Re-wire guide action buttons (copy / download) — onclick attrs don't survive innerHTML clone
+    bodyEl.querySelectorAll('[data-guide-action]').forEach(function (btn) {
+      var action = btn.dataset.guideAction;
+      btn.addEventListener('click', function () {
+        if (action === 'copy' && typeof window.copyImplementerGuide === 'function') {
+          window.copyImplementerGuide(btn);
+        } else if (action === 'download' && typeof window.downloadImplementerGuide === 'function') {
+          window.downloadImplementerGuide();
+        }
+      });
+    });
 
     scrim.classList.add('visible');
     drawer.classList.add('open');
