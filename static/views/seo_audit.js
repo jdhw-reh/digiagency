@@ -53,21 +53,28 @@ const $au = (id) => document.getElementById(id);
 // Mobile carousel helpers
 // ---------------------------------------------------------------------------
 
-const AUDIT_PANEL_ORDER = ['audit-panel-auditor', 'audit-panel-analyser', 'audit-panel-recommender', 'audit-panel-implementer'];
+// ---------------------------------------------------------------------------
+// Accordion state map
+// ---------------------------------------------------------------------------
 
-function auditScrollToPanel(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  const grid = document.querySelector('#view-seo-audit .panel-grid');
-  const panel = document.getElementById(panelId);
-  if (!grid || !panel) return;
-  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
-}
+const AUDIT_ACCORDION = {
+  idle:               { auditor: 'active', analyser: 'locked',  recommender: 'locked',  implementer: 'locked' },
+  auditing:           { auditor: 'active', analyser: 'locked',  recommender: 'locked',  implementer: 'locked' },
+  awaiting_analyse:   { auditor: 'done',   analyser: 'active',  recommender: 'locked',  implementer: 'locked' },
+  analysing:          { auditor: 'done',   analyser: 'active',  recommender: 'locked',  implementer: 'locked' },
+  awaiting_recommend: { auditor: 'done',   analyser: 'done',    recommender: 'active',  implementer: 'locked' },
+  recommending:       { auditor: 'done',   analyser: 'done',    recommender: 'active',  implementer: 'locked' },
+  awaiting_implement: { auditor: 'done',   analyser: 'done',    recommender: 'done',    implementer: 'active' },
+  implementing:       { auditor: 'done',   analyser: 'done',    recommender: 'done',    implementer: 'active' },
+  done:               { auditor: 'done',   analyser: 'done',    recommender: 'done',    implementer: 'done'   },
+};
 
-function auditUpdateCarouselDots(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  document.querySelectorAll('#audit-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
-  });
+function updateAuditAccordion(stage) {
+  const acc = AUDIT_ACCORDION[stage] || AUDIT_ACCORDION.idle;
+  setPanelState(sau.panelAuditor,     acc.auditor);
+  setPanelState(sau.panelAnalyser,    acc.analyser);
+  setPanelState(sau.panelRecommender, acc.recommender);
+  setPanelState(sau.panelImplementer, acc.implementer);
 }
 
 function getAuditUi() {
@@ -147,20 +154,23 @@ function restoreAuditState(state) {
   if (state.implementation) {
     clearEmptyState(sau.implementerOutput);
     sau.implementerOutput.innerHTML = renderMarkdown(state.implementation);
+    setPanelSummary(sau.panelImplementer, '<span>Implementation guide ready</span>');
   }
 
   if (state.recommendations) {
     clearEmptyState(sau.recommenderOutput);
     sau.recommenderOutput.innerHTML = renderMarkdown(state.recommendations);
+    setPanelSummary(sau.panelRecommender, '<span>Recommendations ready</span>');
   }
 
   if (state.analysis) {
     clearEmptyState(sau.analyserOutput);
     sau.analyserOutput.innerHTML = renderMarkdown(state.analysis);
+    setPanelSummary(sau.panelAnalyser, '<span>Analysis complete</span>');
   }
 
   if (state.audit_data && Object.keys(state.audit_data).length) {
-    renderScoreCard(state.audit_data);
+    renderScoreCard(state.audit_data); // also calls setPanelSummary for auditor
   }
 
   // Reset in-progress stages on reload
@@ -190,23 +200,16 @@ function setAuditStage(stage) {
     el.textContent = "";
     el.classList.remove("running");
   });
-  [sau.panelAuditor, sau.panelAnalyser, sau.panelRecommender, sau.panelImplementer].forEach((el) => {
-    el.classList.remove("panel--active");
-  });
-
   const activePanel = AUDIT_STAGE_ACTIVE_PANEL[stage];
   if (activePanel) {
     const statusEl = $au(`audit-${activePanel}-status`);
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
-    $au(`audit-panel-${activePanel}`).classList.add("panel--active");
-    // Auto-advance carousel on mobile
-    auditScrollToPanel(`audit-panel-${activePanel}`);
-    auditUpdateCarouselDots(`audit-panel-${activePanel}`);
   }
 
   updateAuditPipeline(stage);
   updateNextBar(stage);
+  updateAuditAccordion(stage);
 }
 
 function updateNextBar(stage) {
@@ -284,6 +287,21 @@ function renderScoreCard(auditData) {
   }
 
   sau.scoreDetails.innerHTML = lines.map((l) => `<span>${l}</span>`).join("");
+
+  // Populate accordion summary for the Auditor panel
+  if (score !== undefined) {
+    const scoreNum2 = parseInt(score, 10);
+    const scoreClass = scoreNum2 >= 8 ? 'score-high' : scoreNum2 >= 5 ? '' : 'score-low';
+    const high2 = issues.filter((i) => i.severity === 'high').length;
+    const med2  = issues.filter((i) => i.severity === 'medium').length;
+    const issueTxt = (high2 || med2)
+      ? `${high2} high, ${med2} medium issue${high2 + med2 !== 1 ? 's' : ''}`
+      : 'No issues found';
+    const summaryHtml =
+      `<span class="panel-summary-score ${scoreClass}">${score}/10</span>` +
+      `<span>${issueTxt}</span>`;
+    setPanelSummary(sau.panelAuditor, summaryHtml);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -429,6 +447,7 @@ async function startAnalyse() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary(sau.panelAnalyser, '<span>Analysis complete</span>');
       setAuditStage("awaiting_recommend");
     } else if (msg.type === "error") {
       es.close();
@@ -486,6 +505,7 @@ async function startRecommend() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary(sau.panelRecommender, '<span>Recommendations ready</span>');
       setAuditStage("awaiting_implement");
     } else if (msg.type === "error") {
       es.close();
@@ -543,6 +563,7 @@ async function startImplement() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary(sau.panelImplementer, '<span>Implementation guide ready</span>');
       setAuditStage("done");
     } else if (msg.type === "error") {
       es.close();
@@ -701,23 +722,11 @@ function viewDidMount_seoAudit() {
     sau = getAuditUi();
     wireAuditButtons();
 
-    // Carousel: dot tap targets
-    document.querySelectorAll('#audit-carousel-dots .carousel-dot').forEach((dot) => {
-      dot.addEventListener('click', () => {
-        auditScrollToPanel(dot.dataset.panel);
-        auditUpdateCarouselDots(dot.dataset.panel);
-      });
+    // Wire Review buttons — each opens the drawer for its panel
+    [sau.panelAuditor, sau.panelAnalyser, sau.panelRecommender, sau.panelImplementer].forEach((panelEl) => {
+      const btn = panelEl.querySelector('.panel-review-btn');
+      if (btn) btn.addEventListener('click', () => openPanelDrawer(panelEl));
     });
-
-    // Carousel: keep dots in sync with manual swipes
-    const _auditGrid = document.querySelector('#view-seo-audit .panel-grid');
-    if (_auditGrid) {
-      _auditGrid.addEventListener('scroll', () => {
-        if (!window.matchMedia('(max-width: 480px)').matches) return;
-        const idx = Math.round(_auditGrid.scrollLeft / _auditGrid.offsetWidth);
-        auditUpdateCarouselDots(AUDIT_PANEL_ORDER[Math.min(idx, AUDIT_PANEL_ORDER.length - 1)]);
-      }, { passive: true });
-    }
   } catch (e) {
     console.error("SEO Audit init error:", e);
     _auditInitialized = false; // allow retry on next navigation
