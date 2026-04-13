@@ -215,7 +215,6 @@ body {
 
 .director-bar {
   margin-bottom: 28px;
-  max-width: 960px;
 }
 
 .director-headline {
@@ -238,9 +237,8 @@ body {
 
 .home-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
-  max-width: 960px;
 }
 
 /* Team card */
@@ -263,10 +261,6 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   border-color: var(--border);
   border-left-color: var(--card-color);
-}
-
-.team-card--hero {
-  grid-column: span 2;
 }
 
 .team-card--soon {

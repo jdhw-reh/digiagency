@@ -12,24 +12,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Set greeting immediately (no flash of stale text)
+  const textEl = document.getElementById("director-text");
+  if (textEl) textEl.textContent = buildGreeting();
 });
 
 // ---------------------------------------------------------------------------
-// Director bar — dynamic greeting based on activity
+// Director bar — time-based greeting
 // ---------------------------------------------------------------------------
 
-function buildDirectorText(data) {
-  const { content_saved, social_saved, audits_done } = data;
-  const total = content_saved + social_saved + audits_done;
+function buildGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning.";
+  if (hour < 18) return "Good afternoon.";
+  return "Good evening.";
+}
 
-  if (total === 0) return "Good to see you. Where are we heading today?";
-
-  const parts = [];
-  if (content_saved > 0) parts.push(`${content_saved} article${content_saved > 1 ? "s" : ""} published`);
-  if (social_saved > 0) parts.push(`${social_saved} post set${social_saved > 1 ? "s" : ""} saved`);
-  if (audits_done > 0) parts.push(`${audits_done} audit${audits_done > 1 ? "s" : ""} completed`);
-
-  return `The agency is in flow — ${parts.join(", ")}.`;
+function buildDirectorText(_data) {
+  return buildGreeting();
 }
 
 // ---------------------------------------------------------------------------
