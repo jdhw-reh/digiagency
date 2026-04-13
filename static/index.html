@@ -308,12 +308,6 @@
 
       </main>
 
-      <!-- Carousel dot indicators (mobile only) -->
-      <div class="carousel-dots" id="content-carousel-dots" aria-label="Panel indicators" role="tablist">
-        <button class="carousel-dot carousel-dot--active" data-panel="panel-researcher" aria-label="Researcher" role="tab"></button>
-        <button class="carousel-dot" data-panel="panel-planner" aria-label="Planner" role="tab"></button>
-        <button class="carousel-dot" data-panel="panel-writer" aria-label="Writer" role="tab"></button>
-      </div>
 
       <!-- Saved articles -->
       <footer class="saved-footer">
@@ -458,12 +452,6 @@
 
       </main>
 
-      <!-- Carousel dot indicators (mobile only) -->
-      <div class="carousel-dots" id="social-carousel-dots" aria-label="Panel indicators" role="tablist">
-        <button class="carousel-dot carousel-dot--active" data-panel="social-panel-scout" aria-label="Scout" role="tab"></button>
-        <button class="carousel-dot" data-panel="social-panel-strategist" aria-label="Strategist" role="tab"></button>
-        <button class="carousel-dot" data-panel="social-panel-copywriter" aria-label="Copywriter" role="tab"></button>
-      </div>
 
       <!-- Saved posts footer -->
       <footer class="saved-footer">
@@ -696,13 +684,6 @@
 
       </main>
 
-      <!-- Carousel dot indicators (mobile only) -->
-      <div class="carousel-dots" id="audit-carousel-dots" aria-label="Panel indicators" role="tablist">
-        <button class="carousel-dot carousel-dot--active" data-panel="audit-panel-auditor" aria-label="Auditor" role="tab"></button>
-        <button class="carousel-dot" data-panel="audit-panel-analyser" aria-label="Analyser" role="tab"></button>
-        <button class="carousel-dot" data-panel="audit-panel-recommender" aria-label="Recommender" role="tab"></button>
-        <button class="carousel-dot" data-panel="audit-panel-implementer" aria-label="Implementer" role="tab"></button>
-      </div>
 
       <!-- Sticky next-action bar (slides up when a stage completes) -->
       <div id="audit-next-bar" class="audit-next-bar" style="display:none">
@@ -946,11 +927,6 @@
 
       </main>
 
-      <!-- Carousel dot indicators (mobile only) -->
-      <div class="carousel-dots" id="opt-carousel-dots" aria-label="Panel indicators" role="tablist">
-        <button class="carousel-dot carousel-dot--active" data-panel="opt-panel-a" aria-label="Analyser" role="tab"></button>
-        <button class="carousel-dot" data-panel="opt-panel-b" aria-label="Copywriter" role="tab"></button>
-      </div>
 
     </div>
 
@@ -1043,8 +1019,19 @@
 
   <div id="error-toast" class="error-toast" role="alert" aria-live="assertive"></div>
 
+  <!-- ===== PANEL REVIEW DRAWER ===== -->
+  <div id="panel-scrim" class="panel-scrim"></div>
+  <div id="panel-drawer" class="panel-drawer" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="panel-drawer-header">
+      <h3 id="panel-drawer-title"></h3>
+      <button class="panel-drawer-close" onclick="closeDrawer()" aria-label="Close">✕</button>
+    </div>
+    <div id="panel-drawer-body" class="panel-drawer-body"></div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
   <script src="/static/utils.js"></script>
+  <script src="/static/accordion.js"></script>
   <script src="/static/theme.js"></script>
   <script src="/static/auth-interceptor.js"></script>
   <script src="/static/support.js"></script>
