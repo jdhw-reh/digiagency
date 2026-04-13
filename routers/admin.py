@@ -352,6 +352,39 @@ async def admin_save_note(email: str, payload: NotePayload, agency_admin: str | 
     return {"ok": True}
 
 
+@router.get("/api/admin/test-gemini")
+async def test_gemini(agency_admin: str | None = Cookie(default=None)):
+    """Diagnostic: test the Gemini API key and return the raw result."""
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    import os
+    from google import genai
+    from google.genai import types
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return JSONResponse({"error": "GEMINI_API_KEY env var is not set"}, status_code=200)
+
+    results = {}
+    for model in ("gemini-2.5-flash", "gemini-2.0-flash"):
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model=model,
+                contents="Say OK",
+                config=types.GenerateContentConfig(max_output_tokens=5),
+            )
+            results[model] = {"ok": True, "text": response.text}
+        except Exception as exc:
+            results[model] = {"ok": False, "error": str(exc)}
+
+    return JSONResponse({
+        "api_key_prefix": api_key[:8] + "..." if api_key else "NOT SET",
+        "models": results,
+    })
+
+
 # ---------------------------------------------------------------------------
 # HTML templates (inline — no extra files needed)
 # ---------------------------------------------------------------------------
