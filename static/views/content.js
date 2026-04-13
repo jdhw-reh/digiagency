@@ -44,25 +44,25 @@ const $ = (id) => document.getElementById(id);
 // Mobile carousel helpers
 // ---------------------------------------------------------------------------
 
-function isMobileCarousel() {
-  return window.matchMedia('(max-width: 480px)').matches;
-}
+// ---------------------------------------------------------------------------
+// Accordion state map
+// ---------------------------------------------------------------------------
 
-const PANEL_ORDER = ['panel-researcher', 'panel-planner', 'panel-writer'];
+const CONTENT_ACCORDION = {
+  idle:           { researcher: 'active', planner: 'locked',  writer: 'locked' },
+  researching:    { researcher: 'active', planner: 'locked',  writer: 'locked' },
+  awaiting_topic: { researcher: 'active', planner: 'locked',  writer: 'locked' },
+  planning:       { researcher: 'done',   planner: 'active',  writer: 'locked' },
+  awaiting_write: { researcher: 'done',   planner: 'active',  writer: 'locked' },
+  writing:        { researcher: 'done',   planner: 'done',    writer: 'active' },
+  done:           { researcher: 'done',   planner: 'done',    writer: 'done'   },
+};
 
-function scrollToPanel(panelId) {
-  if (!isMobileCarousel()) return;
-  const grid = document.querySelector('#view-content .panel-grid');
-  const panel = document.getElementById(panelId);
-  if (!grid || !panel) return;
-  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
-}
-
-function updateCarouselDots(panelId) {
-  if (!isMobileCarousel()) return;
-  document.querySelectorAll('#content-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
-  });
+function updateContentAccordion(stage) {
+  const acc = CONTENT_ACCORDION[stage] || CONTENT_ACCORDION.idle;
+  setPanelState(ui.panelResearcher, acc.researcher);
+  setPanelState(ui.panelPlanner,    acc.planner);
+  setPanelState(ui.panelWriter,     acc.writer);
 }
 
 function getUi() {
@@ -132,11 +132,13 @@ function restoreState(state) {
     clearEmptyState(ui.writerOutput);
     ui.writerOutput.innerHTML = renderMarkdown(state.article);
     updateWordCount(state.article);
+    setPanelSummary(ui.panelWriter, '<span>Article written</span>');
   }
 
   if (state.brief) {
     clearEmptyState(ui.plannerOutput);
     ui.plannerOutput.innerHTML = renderMarkdown(state.brief);
+    setPanelSummary(ui.panelPlanner, '<span>Content brief ready</span>');
   }
 
   if (state.topics && state.topics.length > 0) {
@@ -160,13 +162,6 @@ function restoreState(state) {
     : state.stage || "idle";
   setStage(safeStage);
 
-  // On mobile, scroll to the restored panel after layout
-  if (isMobileCarousel()) {
-    requestAnimationFrame(() => {
-      const ap = STAGE_ACTIVE_PANEL[safeStage];
-      if (ap) { scrollToPanel(`panel-${ap}`); updateCarouselDots(`panel-${ap}`); }
-    });
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -189,23 +184,16 @@ function setStage(stage) {
     el.textContent = "";
     el.classList.remove("running");
   });
-  [ui.panelResearcher, ui.panelPlanner, ui.panelWriter].forEach((el) => {
-    el.classList.remove("panel--active");
-  });
-
-  // Show status badge and glow on the active panel
+  // Show status badge on the active panel
   const activePanel = STAGE_ACTIVE_PANEL[stage];
   if (activePanel) {
     const statusEl = $(`${activePanel}-status`);
     statusEl.textContent = "Running…";
     statusEl.classList.add("running");
-    $(`panel-${activePanel}`).classList.add("panel--active");
-    // Auto-advance carousel on mobile
-    scrollToPanel(`panel-${activePanel}`);
-    updateCarouselDots(`panel-${activePanel}`);
   }
 
   updatePipeline(stage);
+  updateContentAccordion(stage);
 }
 
 function updatePipeline(stage) {
@@ -451,7 +439,7 @@ function wireButtons() {
     let planText = "";
     startSSE("/api/content/stream/plan", {
       onChunk: (text) => { planText += text; appendToOutput(ui.plannerOutput, planText); },
-      onDone:  () => { finaliseOutput(ui.plannerOutput); setStage("awaiting_write"); },
+      onDone:  () => { finaliseOutput(ui.plannerOutput); setPanelSummary(ui.panelResearcher, '<span>Topics researched</span>'); setPanelSummary(ui.panelPlanner, '<span>Content brief ready</span>'); setStage("awaiting_write"); },
       onError: (msg) => { setStage("awaiting_topic"); showError(msg); },
     });
   });
@@ -470,7 +458,7 @@ function wireButtons() {
         appendToOutput(ui.writerOutput, articleText);
         updateWordCount(articleText);
       },
-      onDone:  () => { finaliseOutput(ui.writerOutput); setStage("done"); },
+      onDone:  () => { finaliseOutput(ui.writerOutput); setPanelSummary(ui.panelWriter, '<span>Article written</span>'); setStage("done"); },
       onError: (msg) => { setStage("awaiting_write"); showError(msg); },
     });
   });
@@ -549,23 +537,11 @@ function viewDidMount_content() {
   ui = getUi();
   wireButtons();
 
-  // Carousel: dot tap targets
-  document.querySelectorAll('#content-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.addEventListener('click', () => {
-      scrollToPanel(dot.dataset.panel);
-      updateCarouselDots(dot.dataset.panel);
-    });
+  // Wire Review buttons — each opens the drawer for its panel
+  [ui.panelResearcher, ui.panelPlanner, ui.panelWriter].forEach((panelEl) => {
+    const btn = panelEl && panelEl.querySelector('.panel-review-btn');
+    if (btn) btn.addEventListener('click', () => openPanelDrawer(panelEl));
   });
-
-  // Carousel: keep dots in sync with manual swipes
-  const _carouselGrid = document.querySelector('#view-content .panel-grid');
-  if (_carouselGrid) {
-    _carouselGrid.addEventListener('scroll', () => {
-      if (!isMobileCarousel()) return;
-      const idx = Math.round(_carouselGrid.scrollLeft / _carouselGrid.offsetWidth);
-      updateCarouselDots(PANEL_ORDER[Math.min(idx, PANEL_ORDER.length - 1)]);
-    }, { passive: true });
-  }
 
   initSession().catch((e) => showError(`Failed to initialise session: ${e.message}`));
 }
