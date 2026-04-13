@@ -10,7 +10,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+import time
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import Depends
 from slowapi import Limiter
@@ -128,6 +129,21 @@ async def canonical_domain_redirect(request: Request, call_next):
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# Cache-busting version token — changes on every deploy (server restart)
+_ASSET_VERSION = str(int(time.time()))
+
+
+def _render_html(filename: str) -> HTMLResponse:
+    """Read an HTML file and inject ?v=<version> on all /static asset URLs."""
+    content = (static_dir / filename).read_text()
+    content = content.replace('href="/static/', f'href="/static/').replace(
+        'src="/static/', f'src="/static/'
+    )
+    # Inject version param before the closing quote on every static asset
+    import re
+    content = re.sub(r'((?:href|src)="/static/[^"]+?)(")', rf'\1?v={_ASSET_VERSION}\2', content)
+    return HTMLResponse(content)
+
 
 @app.get("/health")
 async def health():
@@ -149,7 +165,7 @@ async def root(request: Request):
 
 @app.get("/app")
 async def app_page():
-    return FileResponse(str(static_dir / "index.html"))
+    return _render_html("index.html")
 
 
 @app.get("/login")
