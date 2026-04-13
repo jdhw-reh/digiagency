@@ -126,6 +126,11 @@ async function loadDirectorSummary() {
     const textEl = document.getElementById("director-text");
     if (textEl) textEl.textContent = buildDirectorText(data);
     renderActivityFeed(data.activity || []);
+    if ((data.activity || []).length > 0) {
+      const toggle = document.getElementById("activity-toggle");
+      const body = document.getElementById("activity-body");
+      if (toggle && body) { toggle.setAttribute("aria-expanded", "true"); body.classList.add("is-open"); }
+    }
   } catch (e) {
     console.warn("Could not load director summary:", e);
   }

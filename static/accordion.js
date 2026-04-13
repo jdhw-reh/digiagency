@@ -57,7 +57,7 @@
 
     const panelBody = panelEl.querySelector('.panel-body');
     bodyEl.innerHTML = panelBody ? panelBody.innerHTML : '';
-    // Strip footer CTAs — not actionable from within the modal
+    // Strip footer CTAs from the body clone — not actionable from within the modal
     bodyEl.querySelectorAll('.panel-footer').forEach(function (el) { el.remove(); });
 
     // Re-wire guide action buttons (copy / download) — onclick attrs don't survive innerHTML clone
@@ -71,6 +71,27 @@
         }
       });
     });
+
+    // For the writer panel, append a clone of its action footer (Copy / Download / Save)
+    // and delegate clicks to the originals so existing handlers fire correctly.
+    var writerFooter = panelEl.querySelector('.writer-footer');
+    if (writerFooter) {
+      var footerClone = writerFooter.cloneNode(true);
+      // Wire buttons to originals before stripping IDs
+      footerClone.querySelectorAll('button').forEach(function (btn) {
+        var originalId = btn.id;
+        btn.removeAttribute('id');
+        if (originalId) {
+          btn.addEventListener('click', function () {
+            var original = document.getElementById(originalId);
+            if (original && !original.disabled) original.click();
+          });
+        }
+      });
+      // Strip remaining IDs from clone to avoid duplicate-ID issues
+      footerClone.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+      bodyEl.appendChild(footerClone);
+    }
 
     scrim.classList.add('visible');
     drawer.classList.add('open');

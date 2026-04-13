@@ -21,7 +21,8 @@
 
     <div class="nav-group">
       <a class="nav-link" href="#/home" data-view="home">
-        Overview
+        <svg class="nav-icon" style="color: var(--text-muted)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
       </a>
     </div>
 
@@ -36,27 +37,27 @@
     <div class="nav-group">
       <span class="nav-group-label">Teams</span>
       <a class="nav-link" href="#/content" data-view="content">
-        <span class="nav-dot" style="--dot: #6366f1"></span>
+        <svg class="nav-icon" style="color: #6366f1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Content Team
       </a>
       <a class="nav-link" href="#/social" data-view="social">
-        <span class="nav-dot" style="--dot: #14b8a6"></span>
+        <svg class="nav-icon" style="color: #14b8a6" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         Social Team
       </a>
       <a class="nav-link" href="#/seo-audit" data-view="seo-audit">
-        <span class="nav-dot" style="--dot: #8b5cf6"></span>
+        <svg class="nav-icon" style="color: #8b5cf6" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         SEO Audit
       </a>
       <a class="nav-link" href="#/assistant" data-view="assistant">
-        <span class="nav-dot" style="--dot: #f59e0b"></span>
+        <svg class="nav-icon" style="color: #f59e0b" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Assistant
       </a>
       <a class="nav-link" href="#/video" data-view="video">
-        <span class="nav-dot" style="--dot: #ef4444"></span>
+        <svg class="nav-icon" style="color: #ef4444" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
         Video Director
       </a>
       <a class="nav-link" href="#/on-page-opt" data-view="on-page-opt">
-        <span class="nav-dot" style="--dot: #10b981"></span>
+        <svg class="nav-icon" style="color: #10b981" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
         On-Page Optimiser
       </a>
     </div>
@@ -86,84 +87,78 @@
     <!-- ===== HOME VIEW ===== -->
     <div id="view-home" class="view">
       <div class="director-bar">
-        <span id="director-text">Good to see you. Where are we heading today?</span>
-      </div>
-
-      <div class="quick-launches">
-        <button class="launch-btn" data-view="content">Write an article →</button>
-        <button class="launch-btn" data-view="social">Scout trends →</button>
-        <button class="launch-btn" data-view="seo-audit">Audit a site →</button>
-        <button class="launch-btn" data-view="assistant">Ask the assistant →</button>
-        <button class="launch-btn" data-view="video">Direct a video →</button>
-        <button class="launch-btn" data-view="on-page-opt">Optimise a page →</button>
+        <h1 class="director-headline" id="director-text">Good to see you. Where are we heading today?</h1>
+        <div class="director-rule"></div>
+        <div class="quick-launches">
+          <button class="launch-btn" data-view="content">Write an article →</button>
+          <button class="launch-btn" data-view="social">Scout trends →</button>
+          <button class="launch-btn" data-view="seo-audit">Audit a site →</button>
+          <button class="launch-btn" data-view="assistant">Ask the assistant →</button>
+          <button class="launch-btn" data-view="video">Direct a video →</button>
+          <button class="launch-btn" data-view="on-page-opt">Optimise a page →</button>
+        </div>
       </div>
 
       <div class="home-grid">
 
-        <div class="team-card" data-view="content" style="--card-color: #6366f1">
-          <div class="card-color-bar"></div>
+        <div class="team-card team-card--hero" data-view="content" style="--card-color: #6366f1">
           <div class="card-body">
-            <div class="card-icon">✍</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
             <h2 class="card-name">Content Team</h2>
             <p class="card-desc">Research, plan and write SEO thought leadership articles that rank and convert</p>
-            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+            <div class="card-meta">3 agents</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Write an article <span class="card-arrow">→</span></div>
         </div>
 
         <div class="team-card" data-view="social" style="--card-color: #14b8a6">
-          <div class="card-color-bar"></div>
           <div class="card-body">
-            <div class="card-icon">◎</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
             <h2 class="card-name">Social Team</h2>
             <p class="card-desc">Scout trends, build content calendars and write platform-native posts for LinkedIn, X and Instagram</p>
-            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+            <div class="card-meta">3 agents</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Scout trends <span class="card-arrow">→</span></div>
         </div>
 
         <div class="team-card" data-view="seo-audit" style="--card-color: #8b5cf6">
-          <div class="card-color-bar"></div>
           <div class="card-body">
-            <div class="card-icon">◉</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
             <h2 class="card-name">SEO Audit</h2>
             <p class="card-desc">Audit any website for SEO gaps, ranking opportunities and quick wins with live search intelligence</p>
-            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+            <div class="card-meta">3 agents</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Run an audit <span class="card-arrow">→</span></div>
         </div>
 
         <div class="team-card" data-view="assistant" style="--card-color: #f59e0b">
-          <div class="card-color-bar"></div>
           <div class="card-body">
-            <div class="card-icon">◈</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
             <h2 class="card-name">Assistant</h2>
             <p class="card-desc">Draft emails, summarise documents, build schedules and answer anything you throw at it</p>
-            <div class="card-meta">1 agent · Gemini 2.5 Flash</div>
+            <div class="card-meta">1 agent</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Ask something <span class="card-arrow">→</span></div>
         </div>
 
         <div class="team-card" data-view="video" style="--card-color: #ef4444">
-          <div class="card-color-bar"></div>
           <div class="card-body">
-            <div class="card-icon">◈</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
             <h2 class="card-name">Video Director</h2>
             <p class="card-desc">Turn a brief or social post into a shot-by-shot Runway Gen-4 breakdown with camera-ready prompts</p>
-            <div class="card-meta">1 agent · Gemini 2.5 Flash</div>
+            <div class="card-meta">1 agent</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Direct a video <span class="card-arrow">→</span></div>
         </div>
 
         <div class="team-card" data-view="on-page-opt" style="--card-color: #10b981">
-          <div class="card-color-bar"></div>
           <div class="card-body">
-            <div class="card-icon">⬡</div>
+            <div class="card-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
             <h2 class="card-name">On-Page Optimiser</h2>
             <p class="card-desc">Review existing copy for SEO issues and get a rewrite, or build keyword-researched page copy from a single prompt</p>
-            <div class="card-meta">3 agents · Gemini 2.5 Flash · Google Search</div>
+            <div class="card-meta">3 agents</div>
           </div>
-          <div class="card-enter">Enter <span class="card-arrow">→</span></div>
+          <div class="card-enter">Optimise a page <span class="card-arrow">→</span></div>
         </div>
 
       </div>
@@ -258,11 +253,11 @@
               <div class="empty-state">Waiting to research topics…</div>
             </div>
             <div id="topic-list" class="topic-list" aria-label="Topic options"></div>
-            <div class="panel-footer">
-              <button id="btn-plan" class="btn-primary" disabled>
-                Plan This Topic <span class="btn-arrow">→</span>
-              </button>
-            </div>
+          </div>
+          <div class="panel-footer">
+            <button id="btn-plan" class="btn-primary" disabled>
+              Plan This Topic <span class="btn-arrow">→</span>
+            </button>
           </div>
         </section>
 
@@ -287,11 +282,11 @@
             <div class="stream-output prose-output markdown-output" id="planner-output" aria-label="Content brief">
               <div class="empty-state">Waiting for a topic to be selected…</div>
             </div>
-            <div class="panel-footer">
-              <button id="btn-write" class="btn-primary" disabled>
-                Write Article <span class="btn-arrow">→</span>
-              </button>
-            </div>
+          </div>
+          <div class="panel-footer">
+            <button id="btn-write" class="btn-primary" disabled>
+              Write Article <span class="btn-arrow">→</span>
+            </button>
           </div>
         </section>
 
@@ -316,12 +311,12 @@
             <div class="stream-output prose-output article-output markdown-output" id="writer-output" aria-label="Article content">
               <div class="empty-state">Waiting for a content brief…</div>
             </div>
-            <div class="panel-footer writer-footer">
-              <span class="word-count" id="word-count"></span>
-              <button id="btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
-              <button id="btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
-              <button id="btn-save" class="btn-success" disabled>↑ Save to Notion</button>
-            </div>
+          </div>
+          <div class="panel-footer writer-footer">
+            <span class="word-count" id="word-count"></span>
+            <button id="btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
+            <button id="btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
+            <button id="btn-save" class="btn-success" disabled>↑ Save to Notion</button>
           </div>
         </section>
 
