@@ -50,21 +50,25 @@ const $op = (id) => document.getElementById(id);
 // Mobile carousel helpers
 // ---------------------------------------------------------------------------
 
-const OPT_PANEL_ORDER = ['opt-panel-a', 'opt-panel-b'];
+// ---------------------------------------------------------------------------
+// Accordion state map
+// ---------------------------------------------------------------------------
 
-function optScrollToPanel(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  const grid = document.querySelector('#view-on-page-opt .panel-grid--2col');
-  const panel = document.getElementById(panelId);
-  if (!grid || !panel) return;
-  grid.scrollTo({ left: panel.offsetLeft, behavior: 'smooth' });
-}
+const OPT_ACCORDION = {
+  idle:             { a: 'active', b: 'locked' },
+  analysing:        { a: 'active', b: 'locked' },
+  awaiting_rewrite: { a: 'done',   b: 'active' },
+  rewriting:        { a: 'done',   b: 'active' },
+  researching:      { a: 'active', b: 'locked' },
+  awaiting_write:   { a: 'done',   b: 'active' },
+  writing:          { a: 'done',   b: 'active' },
+  done:             { a: 'done',   b: 'done'   },
+};
 
-function optUpdateCarouselDots(panelId) {
-  if (!window.matchMedia('(max-width: 480px)').matches) return;
-  document.querySelectorAll('#opt-carousel-dots .carousel-dot').forEach((dot) => {
-    dot.classList.toggle('carousel-dot--active', dot.dataset.panel === panelId);
-  });
+function updateOptAccordion(stage) {
+  const acc = OPT_ACCORDION[stage] || OPT_ACCORDION.idle;
+  setPanelState($op('opt-panel-a'), acc.a);
+  setPanelState($op('opt-panel-b'), acc.b);
 }
 
 function getOptUi() {
@@ -240,8 +244,6 @@ function setOptStage(stage) {
     el.textContent = "";
     el.classList.remove("running");
   });
-  [opu.panelA, opu.panelB].forEach((el) => el.classList.remove("panel--active"));
-
   const activePanel = OPT_ACTIVE_PANEL[stage];
   if (activePanel) {
     const statusEl = $op(`opt-${activePanel}-status`);
@@ -249,13 +251,10 @@ function setOptStage(stage) {
       statusEl.textContent = "Running…";
       statusEl.classList.add("running");
     }
-    $op(`opt-${activePanel}`).classList.add("panel--active");
-    // Auto-advance carousel on mobile
-    optScrollToPanel(`opt-${activePanel}`);
-    optUpdateCarouselDots(`opt-${activePanel}`);
   }
 
   updateOptPipeline(stage);
+  updateOptAccordion(stage);
 }
 
 function updateOptPipeline(stage) {
@@ -387,6 +386,7 @@ async function startReview() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary($op('opt-panel-a'), '<span>Analysis complete</span>');
       setOptStage("awaiting_rewrite");
     } else if (msg.type === "error") {
       es.close();
@@ -445,6 +445,7 @@ async function startRewrite() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary($op('opt-panel-b'), '<span>Copy ready</span>');
       setOptStage("done");
     } else if (msg.type === "error") {
       es.close();
@@ -519,6 +520,7 @@ async function startBuild() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary($op('opt-panel-a'), '<span>Research complete</span>');
       setOptStage("awaiting_write");
     } else if (msg.type === "error") {
       es.close();
@@ -577,6 +579,7 @@ async function startWrite() {
     } else if (msg.type === "done") {
       es.close();
       cursor.remove();
+      setPanelSummary($op('opt-panel-b'), '<span>Copy ready</span>');
       setOptStage("done");
     } else if (msg.type === "error") {
       es.close();
@@ -718,23 +721,12 @@ function viewDidMount_onPageOpt() {
     setModeUi("review");
     wireOptButtons();
 
-    // Carousel: dot tap targets
-    document.querySelectorAll('#opt-carousel-dots .carousel-dot').forEach((dot) => {
-      dot.addEventListener('click', () => {
-        optScrollToPanel(dot.dataset.panel);
-        optUpdateCarouselDots(dot.dataset.panel);
-      });
+    // Wire Review buttons for accordion panels
+    [$op('opt-panel-a'), $op('opt-panel-b')].forEach((panelEl) => {
+      if (!panelEl) return;
+      const btn = panelEl.querySelector('.panel-review-btn');
+      if (btn) btn.addEventListener('click', () => openPanelDrawer(panelEl));
     });
-
-    // Carousel: keep dots in sync with manual swipes
-    const _optGrid = document.querySelector('#view-on-page-opt .panel-grid--2col');
-    if (_optGrid) {
-      _optGrid.addEventListener('scroll', () => {
-        if (!window.matchMedia('(max-width: 480px)').matches) return;
-        const idx = Math.round(_optGrid.scrollLeft / _optGrid.offsetWidth);
-        optUpdateCarouselDots(OPT_PANEL_ORDER[Math.min(idx, OPT_PANEL_ORDER.length - 1)]);
-      }, { passive: true });
-    }
   } catch (e) {
     console.error("On-Page Opt init error:", e);
     _optInitialized = false;
