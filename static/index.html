@@ -237,72 +237,91 @@
       <main class="panel-grid">
 
         <!-- Researcher -->
-        <section class="panel panel--indigo" id="panel-researcher">
+        <section class="panel panel--indigo panel--active" id="panel-researcher">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="1">1</span>
               <span class="panel-icon">🔍</span>
               <div>
                 <h2>Researcher</h2>
                 <p class="panel-subtitle">Finds SEO opportunities via live search</p>
               </div>
             </div>
-            <span class="panel-status" id="researcher-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="researcher-status"></span>
+              <button class="panel-review-btn" aria-label="Review Researcher output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output activity-log markdown-output" id="researcher-output" aria-label="Research activity">
-            <div class="empty-state">Waiting to research topics…</div>
-          </div>
-          <div id="topic-list" class="topic-list" aria-label="Topic options"></div>
-          <div class="panel-footer">
-            <button id="btn-plan" class="btn-primary" disabled>
-              Plan This Topic <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output activity-log markdown-output" id="researcher-output" aria-label="Research activity">
+              <div class="empty-state">Waiting to research topics…</div>
+            </div>
+            <div id="topic-list" class="topic-list" aria-label="Topic options"></div>
+            <div class="panel-footer">
+              <button id="btn-plan" class="btn-primary" disabled>
+                Plan This Topic <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Planner -->
-        <section class="panel panel--indigo" id="panel-planner">
+        <section class="panel panel--indigo panel--locked" id="panel-planner">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="2">2</span>
               <span class="panel-icon">📋</span>
               <div>
                 <h2>Planner</h2>
                 <p class="panel-subtitle">Builds the content brief</p>
               </div>
             </div>
-            <span class="panel-status" id="planner-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="planner-status"></span>
+              <button class="panel-review-btn" aria-label="Review Planner output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="planner-output" aria-label="Content brief">
-            <div class="empty-state">Waiting for a topic to be selected…</div>
-          </div>
-          <div class="panel-footer">
-            <button id="btn-write" class="btn-primary" disabled>
-              Write Article <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="planner-output" aria-label="Content brief">
+              <div class="empty-state">Waiting for a topic to be selected…</div>
+            </div>
+            <div class="panel-footer">
+              <button id="btn-write" class="btn-primary" disabled>
+                Write Article <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Writer -->
-        <section class="panel panel--indigo" id="panel-writer">
+        <section class="panel panel--indigo panel--locked" id="panel-writer">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="3">3</span>
               <span class="panel-icon">✍️</span>
               <div>
                 <h2>Writer</h2>
                 <p class="panel-subtitle">Writes the thought leadership article</p>
               </div>
             </div>
-            <span class="panel-status" id="writer-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="writer-status"></span>
+              <button class="panel-review-btn" aria-label="Review Writer output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output article-output markdown-output" id="writer-output" aria-label="Article content">
-            <div class="empty-state">Waiting for a content brief…</div>
-          </div>
-          <div class="panel-footer writer-footer">
-            <span class="word-count" id="word-count"></span>
-            <button id="btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
-            <button id="btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
-            <button id="btn-save" class="btn-success" disabled>
-              ↑ Save to Notion
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output article-output markdown-output" id="writer-output" aria-label="Article content">
+              <div class="empty-state">Waiting for a content brief…</div>
+            </div>
+            <div class="panel-footer writer-footer">
+              <span class="word-count" id="word-count"></span>
+              <button id="btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
+              <button id="btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
+              <button id="btn-save" class="btn-success" disabled>↑ Save to Notion</button>
+            </div>
           </div>
         </section>
 
@@ -380,73 +399,92 @@
       <main class="panel-grid">
 
         <!-- Scout -->
-        <section class="panel panel--teal" id="social-panel-scout">
+        <section class="panel panel--teal panel--active" id="social-panel-scout">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="1">1</span>
               <span class="panel-icon">◎</span>
               <div>
                 <h2>Scout</h2>
                 <p class="panel-subtitle">Finds trending opportunities via live search</p>
               </div>
             </div>
-            <span class="panel-status" id="social-scout-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="social-scout-status"></span>
+              <button class="panel-review-btn" aria-label="Review Scout output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output activity-log markdown-output" id="social-scout-output" aria-label="Scout activity">
-            <div class="empty-state">Waiting to scout trends…</div>
-          </div>
-          <div id="social-opportunity-list" class="topic-list" aria-label="Opportunity options"></div>
-          <div class="panel-footer">
-            <button id="social-btn-strategise" class="btn-primary btn-teal" disabled>
-              Build Calendar <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output activity-log markdown-output" id="social-scout-output" aria-label="Scout activity">
+              <div class="empty-state">Waiting to scout trends…</div>
+            </div>
+            <div id="social-opportunity-list" class="topic-list" aria-label="Opportunity options"></div>
+            <div class="panel-footer">
+              <button id="social-btn-strategise" class="btn-primary btn-teal" disabled>
+                Build Calendar <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Strategist -->
-        <section class="panel panel--teal" id="social-panel-strategist">
+        <section class="panel panel--teal panel--locked" id="social-panel-strategist">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="2">2</span>
               <span class="panel-icon">◫</span>
               <div>
                 <h2>Strategist</h2>
                 <p class="panel-subtitle">Builds the 2-week content calendar</p>
               </div>
             </div>
-            <span class="panel-status" id="social-strategist-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="social-strategist-status"></span>
+              <button class="panel-review-btn" aria-label="Review Strategist output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="social-strategist-output" aria-label="Content calendar">
-            <div class="empty-state">Waiting for an opportunity to be selected…</div>
-          </div>
-          <div class="panel-footer">
-            <button id="social-btn-write" class="btn-primary btn-teal" disabled>
-              Write Posts <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="social-strategist-output" aria-label="Content calendar">
+              <div class="empty-state">Waiting for an opportunity to be selected…</div>
+            </div>
+            <div class="panel-footer">
+              <button id="social-btn-write" class="btn-primary btn-teal" disabled>
+                Write Posts <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Copywriter -->
-        <section class="panel panel--teal" id="social-panel-copywriter">
+        <section class="panel panel--teal panel--locked" id="social-panel-copywriter">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="3">3</span>
               <span class="panel-icon">✎</span>
               <div>
                 <h2>Copywriter</h2>
                 <p class="panel-subtitle">Writes platform-native posts</p>
               </div>
             </div>
-            <span class="panel-status" id="social-copywriter-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="social-copywriter-status"></span>
+              <button class="panel-review-btn" aria-label="Review Copywriter output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output activity-log markdown-output" id="social-copywriter-stream" aria-label="Writing stream">
-            <div class="empty-state">Waiting for a content calendar…</div>
-          </div>
-          <div id="social-posts-container" class="posts-container"></div>
-          <div class="panel-footer writer-footer">
-            <span class="post-count" id="social-post-count"></span>
-            <button id="social-btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
-            <button id="social-btn-download-csv" class="btn-ghost" disabled>↓ Download CSV</button>
-            <button id="social-btn-save" class="btn-success" disabled>
-              ↑ Save to Notion
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output activity-log markdown-output" id="social-copywriter-stream" aria-label="Writing stream">
+              <div class="empty-state">Waiting for a content calendar…</div>
+            </div>
+            <div id="social-posts-container" class="posts-container"></div>
+            <div class="panel-footer writer-footer">
+              <span class="post-count" id="social-post-count"></span>
+              <button id="social-btn-copy-content" class="btn-ghost" disabled>Copy Content</button>
+              <button id="social-btn-download-csv" class="btn-ghost" disabled>↓ Download CSV</button>
+              <button id="social-btn-save" class="btn-success" disabled>↑ Save to Notion</button>
+            </div>
           </div>
         </section>
 
@@ -584,101 +622,125 @@
       <main class="panel-grid">
 
         <!-- Auditor -->
-        <section class="panel panel--violet" id="audit-panel-auditor">
+        <section class="panel panel--violet panel--active" id="audit-panel-auditor">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="1">1</span>
               <span class="panel-icon">◉</span>
               <div>
                 <h2>Auditor</h2>
                 <p class="panel-subtitle">Technical crawl + live competitive research</p>
               </div>
             </div>
-            <span class="panel-status" id="audit-auditor-status"></span>
-          </div>
-          <!-- Technical score card (shown after crawl completes) -->
-          <div id="audit-score-card" class="score-card" style="display:none">
-            <div class="score-card-inner">
-              <div class="score-badge" id="audit-score-badge">–</div>
-              <div class="score-details" id="audit-score-details"></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="audit-auditor-status"></span>
+              <button class="panel-review-btn" aria-label="Review Auditor output">Review ↗</button>
             </div>
           </div>
-          <div class="stream-output activity-log markdown-output" id="audit-auditor-output" aria-label="Audit output">
-            <div class="empty-state">Waiting to audit…</div>
-          </div>
-          <div class="panel-footer">
-            <button id="audit-btn-analyse" class="btn-primary btn-violet" disabled>
-              Analyse <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <!-- Technical score card (shown after crawl completes) -->
+            <div id="audit-score-card" class="score-card" style="display:none">
+              <div class="score-card-inner">
+                <div class="score-badge" id="audit-score-badge">–</div>
+                <div class="score-details" id="audit-score-details"></div>
+              </div>
+            </div>
+            <div class="stream-output activity-log markdown-output" id="audit-auditor-output" aria-label="Audit output">
+              <div class="empty-state">Waiting to audit…</div>
+            </div>
+            <div class="panel-footer">
+              <button id="audit-btn-analyse" class="btn-primary btn-violet" disabled>
+                Analyse <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Analyser -->
-        <section class="panel panel--violet" id="audit-panel-analyser">
+        <section class="panel panel--violet panel--locked" id="audit-panel-analyser">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="2">2</span>
               <span class="panel-icon">◫</span>
               <div>
                 <h2>Analyser</h2>
                 <p class="panel-subtitle">Strengths, gaps and opportunities</p>
               </div>
             </div>
-            <span class="panel-status" id="audit-analyser-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="audit-analyser-status"></span>
+              <button class="panel-review-btn" aria-label="Review Analyser output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="audit-analyser-output" aria-label="Analysis">
-            <div class="empty-state">Waiting for audit to complete…</div>
-          </div>
-          <div class="panel-footer">
-            <button id="audit-btn-recommend" class="btn-primary btn-violet" disabled>
-              Recommend <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="audit-analyser-output" aria-label="Analysis">
+              <div class="empty-state">Waiting for audit to complete…</div>
+            </div>
+            <div class="panel-footer">
+              <button id="audit-btn-recommend" class="btn-primary btn-violet" disabled>
+                Recommend <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Recommender -->
-        <section class="panel panel--violet" id="audit-panel-recommender">
+        <section class="panel panel--violet panel--locked" id="audit-panel-recommender">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="3">3</span>
               <span class="panel-icon">✦</span>
               <div>
                 <h2>Recommender</h2>
                 <p class="panel-subtitle">Prioritised action plan</p>
               </div>
             </div>
-            <span class="panel-status" id="audit-recommender-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="audit-recommender-status"></span>
+              <button class="panel-review-btn" aria-label="Review Recommender output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="audit-recommender-output" aria-label="Recommendations">
-            <div class="empty-state">Waiting for analysis to complete…</div>
-          </div>
-          <div class="panel-footer">
-            <button id="audit-btn-implement" class="btn-primary btn-violet" disabled>
-              Implement <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="audit-recommender-output" aria-label="Recommendations">
+              <div class="empty-state">Waiting for analysis to complete…</div>
+            </div>
+            <div class="panel-footer">
+              <button id="audit-btn-implement" class="btn-primary btn-violet" disabled>
+                Implement <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Implementer -->
-        <section class="panel panel--violet" id="audit-panel-implementer">
+        <section class="panel panel--violet panel--locked" id="audit-panel-implementer">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="4">4</span>
               <span class="panel-icon">⚙</span>
               <div>
                 <h2>Implementer</h2>
                 <p class="panel-subtitle">Step-by-step instructions + ready-to-use assets</p>
               </div>
             </div>
-            <span class="panel-status" id="audit-implementer-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="audit-implementer-status"></span>
+              <button class="panel-review-btn" aria-label="Review Implementer output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="audit-implementer-output" aria-label="Implementation guide">
-            <div class="empty-state">Waiting for recommendations to complete…</div>
-          </div>
-          <div class="panel-footer writer-footer">
-            <button id="audit-btn-save-notion" class="btn-ghost" disabled>
-              Save to Notion
-            </button>
-            <button id="audit-btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
-            <button id="audit-btn-copy" class="btn-success" disabled>
-              Copy Report
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="audit-implementer-output" aria-label="Implementation guide">
+              <div class="empty-state">Waiting for recommendations to complete…</div>
+            </div>
+            <div class="panel-footer writer-footer">
+              <button id="audit-btn-save-notion" class="btn-ghost" disabled>Save to Notion</button>
+              <button id="audit-btn-download" class="btn-ghost" disabled>↓ Download .docx</button>
+              <button id="audit-btn-copy" class="btn-success" disabled>Copy Report</button>
+            </div>
           </div>
         </section>
 
@@ -876,52 +938,62 @@
       <main class="panel-grid panel-grid--2col">
 
         <!-- Panel A: Analyser / Researcher -->
-        <section class="panel panel--emerald" id="opt-panel-a">
+        <section class="panel panel--emerald panel--active" id="opt-panel-a">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="1">1</span>
               <span class="panel-icon">◎</span>
               <div>
                 <h2 id="opt-panel-a-title">Analyser</h2>
                 <p class="panel-subtitle" id="opt-panel-a-subtitle">On-page SEO issues identified</p>
               </div>
             </div>
-            <span class="panel-status" id="opt-panel-a-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="opt-panel-a-status"></span>
+              <button class="panel-review-btn" aria-label="Review step 1 output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output activity-log markdown-output" id="opt-panel-a-output" aria-label="Analysis output">
-            <div class="empty-state">Waiting to start…</div>
-          </div>
-          <!-- Keyword card (shown in Build mode after research) -->
-          <div id="opt-keyword-card" class="kw-card" style="display:none"></div>
-          <div class="panel-footer">
-            <button id="opt-btn-next-step" class="btn-primary btn-emerald" disabled>
-              Optimise Copy <span class="btn-arrow">→</span>
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output activity-log markdown-output" id="opt-panel-a-output" aria-label="Analysis output">
+              <div class="empty-state">Waiting to start…</div>
+            </div>
+            <!-- Keyword card (shown in Build mode after research) -->
+            <div id="opt-keyword-card" class="kw-card" style="display:none"></div>
+            <div class="panel-footer">
+              <button id="opt-btn-next-step" class="btn-primary btn-emerald" disabled>
+                Optimise Copy <span class="btn-arrow">→</span>
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Panel B: Copywriter -->
-        <section class="panel panel--emerald" id="opt-panel-b">
+        <section class="panel panel--emerald panel--locked" id="opt-panel-b">
           <div class="panel-header">
             <div class="panel-title">
+              <span class="panel-badge" data-step="2">2</span>
               <span class="panel-icon">✍</span>
               <div>
                 <h2>Copywriter</h2>
                 <p class="panel-subtitle">SEO-optimised copy, ready to publish</p>
               </div>
             </div>
-            <span class="panel-status" id="opt-panel-b-status"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="panel-status" id="opt-panel-b-status"></span>
+              <button class="panel-review-btn" aria-label="Review Copywriter output">Review ↗</button>
+            </div>
           </div>
-          <div class="stream-output prose-output markdown-output" id="opt-panel-b-output" aria-label="Copywriter output">
-            <div class="empty-state">Waiting for step 1 to complete…</div>
-          </div>
-          <div class="panel-footer writer-footer">
-            <span class="post-count" id="opt-word-count"></span>
-            <button id="opt-btn-save-notion" class="btn-ghost" disabled>
-              Save to Notion
-            </button>
-            <button id="opt-btn-copy" class="btn-success" disabled>
-              Copy Content
-            </button>
+          <div class="panel-summary"><span class="panel-summary-text"></span></div>
+          <div class="panel-body">
+            <div class="stream-output prose-output markdown-output" id="opt-panel-b-output" aria-label="Copywriter output">
+              <div class="empty-state">Waiting for step 1 to complete…</div>
+            </div>
+            <div class="panel-footer writer-footer">
+              <span class="post-count" id="opt-word-count"></span>
+              <button id="opt-btn-save-notion" class="btn-ghost" disabled>Save to Notion</button>
+              <button id="opt-btn-copy" class="btn-success" disabled>Copy Content</button>
+            </div>
           </div>
         </section>
 
