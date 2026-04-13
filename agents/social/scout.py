@@ -13,6 +13,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 SCOUT_SYSTEM_PROMPT = """You are a social media intelligence analyst. \
 You specialise in profiling accounts, benchmarking competitors, and identifying \
@@ -95,24 +96,17 @@ async def run(profile_url: str, description: str, platform: str, api_key: str = 
     )
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SCOUT_SYSTEM_PROMPT,
-                    temperature=0.4,
-                ),
-            )
-            for chunk in response:
-                text = chunk.text
-                if text:
-                    text_queue.put(("chunk", text))
-                    full_text_parts.append(text)
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=SCOUT_SYSTEM_PROMPT,
+                temperature=0.4,
+            ),
+            text_queue,
+            full_text_parts,
+        )
 
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()

@@ -12,6 +12,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 IMPLEMENTER_SYSTEM_PROMPT = """You are a hands-on technical SEO specialist and WordPress expert. \
 You translate SEO recommendations into exact implementation steps that a non-technical \
@@ -114,20 +115,16 @@ async def run(url: str, context: str, cms: str, audit_data: dict, analysis: str,
     loop = asyncio.get_event_loop()
 
     def _run_sync():
-        try:
-            for chunk in client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=IMPLEMENTER_SYSTEM_PROMPT,
-                    temperature=0.3,
-                ),
-            ):
-                if chunk.text:
-                    result_queue.put(("chunk", chunk.text))
-            result_queue.put(("done", None))
-        except Exception as exc:
-            result_queue.put(("error", str(exc)))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=IMPLEMENTER_SYSTEM_PROMPT,
+                temperature=0.3,
+            ),
+            result_queue,
+        )
 
     thread = threading.Thread(target=_run_sync, daemon=True)
     thread.start()

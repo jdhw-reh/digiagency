@@ -16,6 +16,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 RESEARCHER_SYSTEM_PROMPT = """You are a senior SEO keyword researcher. You use real-time \
 search data to identify the best keyword opportunities for a specific page. You understand \
@@ -81,20 +82,16 @@ async def run(prompt: str, page_type: str, location: str = "", audit_context: st
     result_queue: queue.Queue = queue.Queue()
 
     def _run_sync():
-        try:
-            for chunk in client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=RESEARCHER_SYSTEM_PROMPT,
-                    temperature=0.3,
-                ),
-            ):
-                if chunk.text:
-                    result_queue.put(("chunk", chunk.text))
-            result_queue.put(("done", None))
-        except Exception as exc:
-            result_queue.put(("error", str(exc)))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            full_prompt,
+            types.GenerateContentConfig(
+                system_instruction=RESEARCHER_SYSTEM_PROMPT,
+                temperature=0.3,
+            ),
+            result_queue,
+        )
 
     loop = asyncio.get_event_loop()
     thread = threading.Thread(target=_run_sync, daemon=True)

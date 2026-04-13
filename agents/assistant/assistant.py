@@ -16,6 +16,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 ASSISTANT_SYSTEM_PROMPT = """You are an exceptionally capable executive assistant. \
 You think clearly, write precisely, and get things done.
@@ -102,22 +103,16 @@ async def run(
     text_queue: queue.Queue = queue.Queue()
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=ASSISTANT_SYSTEM_PROMPT,
-                    temperature=0.6,
-                ),
-            )
-            for chunk in response:
-                if chunk.text:
-                    text_queue.put(("chunk", chunk.text))
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            contents,
+            types.GenerateContentConfig(
+                system_instruction=ASSISTANT_SYSTEM_PROMPT,
+                temperature=0.6,
+            ),
+            text_queue,
+        )
 
     threading.Thread(target=_stream_to_queue, daemon=True).start()
 

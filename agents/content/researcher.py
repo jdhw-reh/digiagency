@@ -16,6 +16,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 RESEARCHER_SYSTEM_PROMPT = """You are a senior SEO strategist. Your job is to identify \
 high-value blog topics for any business or niche based on the context provided.
@@ -80,24 +81,17 @@ async def run(business_context: str, api_key: str = ""):
     full_text_parts: list[str] = []
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=RESEARCHER_PROMPT.format(context=business_context),
-                config=types.GenerateContentConfig(
-                    system_instruction=RESEARCHER_SYSTEM_PROMPT,
-                    temperature=0.4,
-                ),
-            )
-            for chunk in response:
-                text = chunk.text
-                if text:
-                    text_queue.put(("chunk", text))
-                    full_text_parts.append(text)
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            RESEARCHER_PROMPT.format(context=business_context),
+            types.GenerateContentConfig(
+                system_instruction=RESEARCHER_SYSTEM_PROMPT,
+                temperature=0.4,
+            ),
+            text_queue,
+            full_text_parts,
+        )
 
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()

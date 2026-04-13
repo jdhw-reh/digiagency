@@ -10,6 +10,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 ANALYSER_SYSTEM_PROMPT = """You are a senior SEO strategist who turns raw audit data \
 into clear strategic analysis. You are direct, specific, and always tie observations \
@@ -63,20 +64,16 @@ async def run(url: str, context: str, audit_data: dict, api_key: str = "", compe
     result_queue: queue.Queue = queue.Queue()
 
     def _run_sync():
-        try:
-            for chunk in client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=ANALYSER_SYSTEM_PROMPT,
-                    temperature=0.4,
-                ),
-            ):
-                if chunk.text:
-                    result_queue.put(("chunk", chunk.text))
-            result_queue.put(("done", None))
-        except Exception as exc:
-            result_queue.put(("error", str(exc)))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=ANALYSER_SYSTEM_PROMPT,
+                temperature=0.4,
+            ),
+            result_queue,
+        )
 
     loop = asyncio.get_event_loop()
     thread = threading.Thread(target=_run_sync, daemon=True)

@@ -20,6 +20,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 DIRECTOR_SYSTEM_PROMPT = """\
 You are a video director and Runway Gen-4 prompt engineer. \
@@ -185,24 +186,17 @@ async def run(brief: str, platform: str, duration: str, api_key: str = ""):
     full_text_parts: list[str] = []
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=DIRECTOR_SYSTEM_PROMPT,
-                    temperature=0.7,
-                ),
-            )
-            for chunk in response:
-                text = chunk.text
-                if text:
-                    text_queue.put(("chunk", text))
-                    full_text_parts.append(text)
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=DIRECTOR_SYSTEM_PROMPT,
+                temperature=0.7,
+            ),
+            text_queue,
+            full_text_parts,
+        )
 
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()

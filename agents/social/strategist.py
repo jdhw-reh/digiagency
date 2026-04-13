@@ -12,6 +12,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 STRATEGIST_SYSTEM_PROMPT = """You are a social content director with a decade of experience \
 building engaged audiences for brands across every major platform.
@@ -81,22 +82,16 @@ async def run(opportunity: dict, profile_url: str, description: str, platform: s
     text_queue: queue.Queue = queue.Queue()
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=STRATEGIST_SYSTEM_PROMPT,
-                    temperature=0.5,
-                ),
-            )
-            for chunk in response:
-                if chunk.text:
-                    text_queue.put(("chunk", chunk.text))
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=STRATEGIST_SYSTEM_PROMPT,
+                temperature=0.5,
+            ),
+            text_queue,
+        )
 
     threading.Thread(target=_stream_to_queue, daemon=True).start()
 

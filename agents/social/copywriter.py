@@ -14,6 +14,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 COPYWRITER_SYSTEM_PROMPT = """You are a platform-native social media copywriter. \
 You write posts that read like they came from a sharp practitioner, not a social media agency.
@@ -130,24 +131,17 @@ async def run(calendar: str, profile_url: str, description: str, platform: str, 
     full_text_parts: list[str] = []
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=COPYWRITER_SYSTEM_PROMPT,
-                    temperature=0.8,
-                ),
-            )
-            for chunk in response:
-                text = chunk.text
-                if text:
-                    text_queue.put(("chunk", text))
-                    full_text_parts.append(text)
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=COPYWRITER_SYSTEM_PROMPT,
+                temperature=0.8,
+            ),
+            text_queue,
+            full_text_parts,
+        )
 
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()

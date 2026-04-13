@@ -21,6 +21,7 @@ import httpx
 from bs4 import BeautifulSoup
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 AUDITOR_SYSTEM_PROMPT = """You are a senior technical SEO consultant with 15 years of experience. \
 You audit websites for SEO performance and identify concrete opportunities for improvement.
@@ -339,20 +340,16 @@ async def run(url: str, context: str, api_key: str = ""):
     result_queue: queue.Queue = queue.Queue()
 
     def _run_sync():
-        try:
-            for chunk in client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=AUDITOR_SYSTEM_PROMPT,
-                    temperature=0.3,
-                ),
-            ):
-                if chunk.text:
-                    result_queue.put(("chunk", chunk.text))
-            result_queue.put(("done", None))
-        except Exception as exc:
-            result_queue.put(("error", str(exc)))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=AUDITOR_SYSTEM_PROMPT,
+                temperature=0.3,
+            ),
+            result_queue,
+        )
 
     thread = threading.Thread(target=_run_sync, daemon=True)
     thread.start()

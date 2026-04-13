@@ -15,6 +15,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 COPYWRITER_SYSTEM_PROMPT = """You are an expert SEO copywriter who produces copy that ranks \
 and converts. You write with authority, clarity and natural keyword integration. Your copy \
@@ -139,20 +140,16 @@ async def run(
     result_queue: queue.Queue = queue.Queue()
 
     def _run_sync():
-        try:
-            for chunk in client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=COPYWRITER_SYSTEM_PROMPT,
-                    temperature=0.5,
-                ),
-            ):
-                if chunk.text:
-                    result_queue.put(("chunk", chunk.text))
-            result_queue.put(("done", None))
-        except Exception as exc:
-            result_queue.put(("error", str(exc)))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            full_prompt,
+            types.GenerateContentConfig(
+                system_instruction=COPYWRITER_SYSTEM_PROMPT,
+                temperature=0.5,
+            ),
+            result_queue,
+        )
 
     loop = asyncio.get_event_loop()
     thread = threading.Thread(target=_run_sync, daemon=True)

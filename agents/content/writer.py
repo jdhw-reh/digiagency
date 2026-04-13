@@ -10,6 +10,7 @@ import threading
 
 from google import genai
 from google.genai import types
+from agents.gemini_stream import stream_with_retry
 
 WRITER_SYSTEM_PROMPT = """You are a professional services copywriter with a reputation for writing \
 thought leadership that sounds like a smart practitioner, not a content mill.
@@ -75,22 +76,16 @@ async def run(brief: str, topic: dict, business_context: str, api_key: str = "")
     text_queue: queue.Queue = queue.Queue()
 
     def _stream_to_queue():
-        try:
-            response = client.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=WRITER_SYSTEM_PROMPT,
-                    temperature=0.7,
-                ),
-            )
-            for chunk in response:
-                if chunk.text:
-                    text_queue.put(("chunk", chunk.text))
-        except Exception as e:
-            text_queue.put(("error", str(e)))
-        finally:
-            text_queue.put(("done", None))
+        stream_with_retry(
+            client,
+            "gemini-2.5-flash",
+            prompt,
+            types.GenerateContentConfig(
+                system_instruction=WRITER_SYSTEM_PROMPT,
+                temperature=0.7,
+            ),
+            text_queue,
+        )
 
     threading.Thread(target=_stream_to_queue, daemon=True).start()
 
