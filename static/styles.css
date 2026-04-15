@@ -3280,6 +3280,26 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   .writer-footer {
     justify-content: space-between;
   }
+
+  /* Chat view: pin input bar at bottom on mobile */
+  #view-assistant {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #view-assistant .chat-messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #view-assistant .chat-input-bar {
+    flex-shrink: 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
 }
 
 
