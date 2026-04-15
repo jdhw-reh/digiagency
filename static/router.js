@@ -70,6 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function openSidebar() {
     sidebar.classList.add('sidebar--open');
+    document.body.classList.add('sidebar-open');
     overlay.classList.add('overlay--visible');
     toggle.setAttribute('aria-expanded', 'true');
     toggle.setAttribute('aria-label', 'Close navigation');
@@ -77,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function closeSidebar() {
     sidebar.classList.remove('sidebar--open');
+    document.body.classList.remove('sidebar-open');
     overlay.classList.remove('overlay--visible');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-label', 'Open navigation');

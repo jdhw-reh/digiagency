@@ -3197,8 +3197,14 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
 /* View header: left padding clears the hamburger button */
   .view-header { padding-left: 60px; }
 
-  /* Home view: reduce padding, clear hamburger on the left */
-  #view-home { padding: 16px 16px 16px 60px; }
+  /* Home view: block layout so cards don't flex-shrink away; scroll on the view.
+     60px left padding clears the fixed hamburger button. */
+  #view-home {
+    display: block;
+    padding: 16px 16px 24px 60px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
   /* Home heading */
   .director-bar span { font-size: 20px; }
