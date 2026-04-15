@@ -3188,7 +3188,10 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   #app-main { width: 100%; }
 
   /* Active view: allow vertical scrolling */
-  .view--visible { overflow-y: auto; }
+  .view.view--visible {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
 /* View header: left padding clears the hamburger button */
   .view-header { padding-left: 60px; }
