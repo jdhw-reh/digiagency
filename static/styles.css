@@ -3300,6 +3300,11 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     flex-shrink: 0;
     padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
+
+  /* Hide hamburger behind sidebar when sidebar is open */
+  #sidebar.sidebar--open + .sidebar-toggle {
+    z-index: 499;
+  }
 }
 
 
