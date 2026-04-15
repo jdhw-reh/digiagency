@@ -477,6 +477,7 @@ ui.btnReset.addEventListener("click", async () => {
 
   function open() {
     sidebar.classList.add('sidebar--open');
+    document.body.classList.add('sidebar-open');
     overlay.classList.add('overlay--visible');
     toggle.setAttribute('aria-expanded', 'true');
     toggle.setAttribute('aria-label', 'Close navigation');
@@ -484,6 +485,7 @@ ui.btnReset.addEventListener("click", async () => {
 
   function close() {
     sidebar.classList.remove('sidebar--open');
+    document.body.classList.remove('sidebar-open');
     overlay.classList.remove('overlay--visible');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-label', 'Open navigation');

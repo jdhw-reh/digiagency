@@ -3156,7 +3156,8 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     justify-content: center;
     gap: 4px;
     position: fixed;
-    top: 12px; left: 12px;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
     z-index: 501;
     width: 40px;
     height: 40px;
@@ -3301,9 +3302,9 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
     padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
 
-  /* Hide hamburger behind sidebar when sidebar is open */
-  #sidebar.sidebar--open + .sidebar-toggle {
-    z-index: 499;
+  /* Hide hamburger when sidebar is open (display:none is safe — scrim closes sidebar) */
+  body.sidebar-open .sidebar-toggle {
+    display: none;
   }
 }
 
