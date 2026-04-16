@@ -16,41 +16,107 @@ import asyncio
 import json
 import os
 import secrets
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 
 import stripe as _stripe
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
 from state import (
     get_account,
     get_activity_log,
+    get_admin_audit_log,
     get_admin_note,
     get_analytics_counters,
     get_user_activity,
     list_accounts,
     list_accounts_enriched,
+    log_admin_action,
     redis_client,
     save_account,
     save_admin_note,
+    verify_password,
 )
 
 router = APIRouter()
 
 _ADMIN_COOKIE = "agency_admin"
-_ADMIN_TOKEN_TTL = 86400 * 7  # 7 days
+_ADMIN_TOKEN_TTL = 28800        # 8 hours — admins must re-authenticate daily
+_LOGIN_BLOCK_TTL = 900          # 15 minutes
+_LOGIN_MAX_ATTEMPTS = 5
+
+# Cookies must be sent over HTTPS only.  Railway enforces TLS in production, so
+# secure=True is always correct there.  Local dev can set ENVIRONMENT=development
+# to allow the cookie over plain HTTP (e.g. http://localhost:8000).
+_SECURE_COOKIES = os.getenv("ENVIRONMENT", "production") != "development"
 
 
-def _get_admin_password() -> str:
-    return os.environ.get("ADMIN_PASSWORD", "")
+def _load_admin_credentials() -> dict[str, str] | None:
+    """Parse ADMIN_CREDENTIALS JSON env var into an email→bcrypt-hash dict."""
+    raw = os.environ.get("ADMIN_CREDENTIALS", "")
+    if not raw:
+        return None
+    try:
+        creds = json.loads(raw)
+        if not isinstance(creds, dict) or not creds:
+            raise ValueError("must be a non-empty JSON object")
+        return {k.lower(): v for k, v in creds.items()}
+    except Exception as exc:
+        print(f"[admin] WARNING: ADMIN_CREDENTIALS is invalid ({exc}); "
+              "falling back to ADMIN_PASSWORD", file=sys.stderr)
+        return None
+
+
+_ADMIN_CREDENTIALS: dict[str, str] | None = _load_admin_credentials()
+if _ADMIN_CREDENTIALS is None:
+    _legacy_pw = os.environ.get("ADMIN_PASSWORD", "")
+    if _legacy_pw:
+        print("[admin] DEPRECATION WARNING: ADMIN_PASSWORD is deprecated. "
+              "Migrate to ADMIN_CREDENTIALS (JSON email→bcrypt-hash pairs).", file=sys.stderr)
+    else:
+        print("[admin] WARNING: No admin credentials configured. "
+              "Set ADMIN_CREDENTIALS or ADMIN_PASSWORD.", file=sys.stderr)
+
+
+async def _get_admin_email(cookie: str | None) -> str | None:
+    """Return the authenticated admin's email, or None if session is missing/expired."""
+    if not cookie:
+        return None
+    raw = await redis_client.get(f"admin_session:{cookie}")
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except Exception:
+        # Legacy sessions stored "1" — treat as expired and force re-login
+        await redis_client.delete(f"admin_session:{cookie}")
+        return None
+
+    last_seen_str = data.get("last_seen", "")
+    if last_seen_str:
+        try:
+            last_seen = datetime.fromisoformat(last_seen_str)
+            # Ensure timezone-aware comparison
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            idle_seconds = (datetime.now(timezone.utc) - last_seen).total_seconds()
+            if idle_seconds > _ADMIN_TOKEN_TTL:
+                await redis_client.delete(f"admin_session:{cookie}")
+                return None
+        except Exception:
+            pass
+
+    # Refresh last_seen on every authenticated request
+    data["last_seen"] = datetime.now(timezone.utc).isoformat()
+    await redis_client.setex(f"admin_session:{cookie}", _ADMIN_TOKEN_TTL, json.dumps(data))
+    return data.get("email", "unknown")
 
 
 async def _is_admin(cookie: str | None) -> bool:
-    if not cookie:
-        return False
-    return bool(await redis_client.get(f"admin_session:{cookie}"))
+    return bool(await _get_admin_email(cookie))
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +124,7 @@ async def _is_admin(cookie: str | None) -> bool:
 # ---------------------------------------------------------------------------
 
 class AdminLoginPayload(BaseModel):
+    email: str
     password: str
 
 
@@ -81,22 +148,64 @@ async def admin_panel(agency_admin: str | None = Cookie(default=None)):
 
 
 @router.post("/admin/login")
-async def admin_login(payload: AdminLoginPayload, response: Response):
-    expected = _get_admin_password()
-    if not expected:
-        return JSONResponse({"error": "ADMIN_PASSWORD env variable not set."}, status_code=500)
-    if not secrets.compare_digest(payload.password, expected):
-        return JSONResponse({"error": "Wrong password."}, status_code=401)
+async def admin_login(payload: AdminLoginPayload, request: Request, response: Response):
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Check if this IP is currently blocked
+    block_key = f"admin_login_block:{client_ip}"
+    if await redis_client.get(block_key):
+        return JSONResponse(
+            {"error": "Too many failed attempts. Try again in 15 minutes."},
+            status_code=429,
+        )
+
+    # Authenticate against ADMIN_CREDENTIALS (preferred) or legacy ADMIN_PASSWORD
+    authed_email: str | None = None
+    email_lower = payload.email.strip().lower()
+
+    if _ADMIN_CREDENTIALS:
+        hashed = _ADMIN_CREDENTIALS.get(email_lower)
+        if hashed:
+            try:
+                if verify_password(payload.password, hashed):
+                    authed_email = email_lower
+            except Exception:
+                pass
+    else:
+        # Legacy single-password fallback — any email is accepted
+        expected = os.environ.get("ADMIN_PASSWORD", "")
+        if expected and secrets.compare_digest(payload.password, expected):
+            authed_email = email_lower or "admin"
+
+    if not authed_email:
+        attempts_key = f"admin_login_attempts:{client_ip}"
+        attempts = await redis_client.incr(attempts_key)
+        await redis_client.expire(attempts_key, _LOGIN_BLOCK_TTL)
+        if attempts >= _LOGIN_MAX_ATTEMPTS:
+            await redis_client.setex(block_key, _LOGIN_BLOCK_TTL, "1")
+            await redis_client.delete(attempts_key)
+            return JSONResponse(
+                {"error": "Too many failed attempts. Try again in 15 minutes."},
+                status_code=429,
+            )
+        return JSONResponse({"error": "Invalid credentials."}, status_code=401)
+
+    # Clear failure counter on success
+    await redis_client.delete(f"admin_login_attempts:{client_ip}")
 
     token = secrets.token_urlsafe(32)
-    await redis_client.setex(f"admin_session:{token}", _ADMIN_TOKEN_TTL, "1")
+    session_data = {
+        "email": authed_email,
+        "last_seen": datetime.now(timezone.utc).isoformat(),
+    }
+    await redis_client.setex(f"admin_session:{token}", _ADMIN_TOKEN_TTL, json.dumps(session_data))
     response.set_cookie(
         key=_ADMIN_COOKIE,
         value=token,
         max_age=_ADMIN_TOKEN_TTL,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=_SECURE_COOKIES,  # True in production (Railway enforces HTTPS); False only when ENVIRONMENT=development
     )
     return {"ok": True}
 
@@ -123,19 +232,24 @@ async def admin_list_users(agency_admin: str | None = Cookie(default=None)):
 
 @router.post("/api/admin/users/activate")
 async def admin_activate(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
-    if not await _is_admin(agency_admin):
+    admin_email = await _get_admin_email(agency_admin)
+    if not admin_email:
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     account = await get_account(payload.email)
     if not account:
         return JSONResponse({"error": "User not found"}, status_code=404)
+    prev_status = account.get("subscription_status", "unknown")
     account["subscription_status"] = "active"
     await save_account(payload.email, account)
+    await log_admin_action(admin_email, "activate_user", payload.email,
+                           f"status changed from {prev_status} to active")
     return {"ok": True, "email": payload.email, "subscription_status": "active"}
 
 
 @router.post("/api/admin/users/revoke")
 async def admin_revoke(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
-    if not await _is_admin(agency_admin):
+    admin_email = await _get_admin_email(agency_admin)
+    if not admin_email:
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     account = await get_account(payload.email)
     if not account:
@@ -148,6 +262,8 @@ async def admin_revoke(payload: UserEmailPayload, agency_admin: str | None = Coo
     }
     await redis_client.setex(f"revoked:{payload.email.lower()}", 86400 * 365, json.dumps(revoked_record))
     await redis_client.delete(f"account:{payload.email.lower()}")
+    await log_admin_action(admin_email, "revoke_user", payload.email,
+                           "account deleted and added to revoked list")
     return {"ok": True, "email": payload.email}
 
 
@@ -166,9 +282,12 @@ async def admin_list_revoked(agency_admin: str | None = Cookie(default=None)):
 
 @router.post("/api/admin/revoked/remove")
 async def admin_remove_revoked(payload: UserEmailPayload, agency_admin: str | None = Cookie(default=None)):
-    if not await _is_admin(agency_admin):
+    admin_email = await _get_admin_email(agency_admin)
+    if not admin_email:
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     await redis_client.delete(f"revoked:{payload.email.lower()}")
+    await log_admin_action(admin_email, "remove_revoked", payload.email,
+                           "removed from revoked list")
     return {"ok": True}
 
 
@@ -346,10 +465,22 @@ async def admin_get_note(email: str, agency_admin: str | None = Cookie(default=N
 
 @router.post("/api/admin/users/{email}/note")
 async def admin_save_note(email: str, payload: NotePayload, agency_admin: str | None = Cookie(default=None)):
-    if not await _is_admin(agency_admin):
+    admin_email = await _get_admin_email(agency_admin)
+    if not admin_email:
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     await save_admin_note(email, payload.note)
+    action = "delete_note" if not payload.note.strip() else "save_note"
+    await log_admin_action(admin_email, action, email,
+                           f"note length: {len(payload.note)} chars")
     return {"ok": True}
+
+
+@router.get("/api/admin/audit-log")
+async def admin_get_audit_log(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    entries = await get_admin_audit_log(limit=100)
+    return {"entries": entries}
 
 
 @router.get("/api/admin/test-gemini")
@@ -419,24 +550,28 @@ def _login_page() -> str:
 <div class="card">
   <h1>Admin Login</h1>
   <p>Digi Agency admin panel</p>
-  <label for="pw">Password</label>
-  <input type="password" id="pw" placeholder="Enter admin password" autofocus>
+  <label for="em">Email</label>
+  <input type="email" id="em" placeholder="admin@example.com" autofocus>
+  <label for="pw" style="margin-top:14px">Password</label>
+  <input type="password" id="pw" placeholder="Password">
   <button onclick="doLogin()">Sign in</button>
   <div id="err"></div>
 </div>
 <script>
 async function doLogin() {
+  const email = document.getElementById('em').value.trim();
   const pw = document.getElementById('pw').value;
   const res = await fetch('/admin/login', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({password: pw}),
+    body: JSON.stringify({email, password: pw}),
   });
   const data = await res.json();
   if (res.ok) { location.reload(); }
   else { document.getElementById('err').textContent = data.error || 'Login failed'; }
 }
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('em').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pw').focus(); });
 </script>
 </body>
 </html>"""
@@ -594,6 +729,98 @@ def _admin_page() -> str:
            border: 1px solid #1a5a9a; border-radius: 10px; padding: 12px 20px;
            font-size: 14px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 200; }
   .toast.show { opacity: 1; }
+
+  /* Card / section collapse (desktop: hidden, mobile toggles on) */
+  .card-chevron { display: none; }
+  .mobile-status { display: none; }
+  .section-chevron { display: none; }
+
+  /* ─── Mobile ─── */
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+    h1 { font-size: 18px; }
+    h2 { font-size: 14px; margin-bottom: 10px; }
+
+    /* Stats: 2-column, MRR spans full width */
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    .stats-row .stat-card:last-child { grid-column: span 2; }
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 24px; }
+
+    /* Analytics: single column */
+    .analytics-grid, .analytics-grid-wide { grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+    .chart-card { padding: 14px 16px; }
+
+    /* Hour heatmap: 6-column (2 rows of 12) */
+    .heatmap-grid, #chart-hours { grid-template-columns: repeat(6, 1fr); }
+
+    /* Table controls: wrap to multiple rows */
+    .table-controls { flex-wrap: wrap; }
+    .table-controls input { max-width: 100%; flex: 1 1 100%; }
+    .table-controls select { flex: 1; }
+    .export-btn { margin-left: 0; flex: 1; text-align: center; }
+
+    /* Users table → card layout */
+    #users-table { border: none; background: transparent; border-radius: 0; }
+    #users-table thead { display: none; }
+    #users-table tbody { display: block; }
+    #users-table tr { display: block; margin-bottom: 12px; border-radius: 12px;
+      border: 1px solid #0d4a8a; overflow: hidden; background: #00346e; }
+    #users-table td { display: block; padding: 10px 16px;
+      border-bottom: 1px solid #001a40; border-radius: 0; font-size: 13px; }
+    #users-table tr td:last-child { border-bottom: none; }
+    #users-table td::before { content: attr(data-label); display: block;
+      font-size: 10px; color: #4d6b9a; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 4px; }
+    /* Churn indicator on mobile: left border on whole card */
+    .churn-row { border-left: 3px solid #ffc58f !important; }
+    #users-table .churn-row td:first-child { border-left: none; }
+
+    /* Revoked table → card layout */
+    #revoked-table { border: none; background: transparent; border-radius: 0; }
+    #revoked-table thead { display: none; }
+    #revoked-table tbody { display: block; }
+    #revoked-table tr { display: block; margin-bottom: 10px; border-radius: 12px;
+      border: 1px solid #0d4a8a; overflow: hidden; background: #00346e; }
+    #revoked-table td { display: block; padding: 10px 16px;
+      border-bottom: 1px solid #001a40; font-size: 13px; }
+    #revoked-table tr td:last-child { border-bottom: none; }
+    #revoked-table td::before { content: attr(data-label); display: block;
+      font-size: 10px; color: #4d6b9a; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 4px; }
+
+    /* Touch targets */
+    .action-btn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
+    .btn-view { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+    .logout-btn { padding: 9px 16px; }
+
+    /* Activity feed: wrap to 2 rows */
+    .activity-item { flex-wrap: wrap; row-gap: 4px; }
+
+    /* Section spacing */
+    .section { margin-bottom: 28px; }
+
+    /* Modal: more height on mobile */
+    .modal { max-height: 90vh; }
+
+    /* Section collapse */
+    .section-chevron { display: inline; color: #4d6b9a; font-size: 11px;
+      margin-left: 8px; transition: transform 0.2s ease; }
+    .section-toggle { cursor: pointer; user-select: none; }
+    .section.expanded .section-chevron { transform: rotate(90deg); color: #5ba3ff; }
+    #activity-section #activity-list { display: none; }
+    #activity-section.expanded #activity-list { display: block; }
+
+    /* User card collapse */
+    .mobile-status { display: inline-block; }
+    .card-chevron { display: inline; color: #4d6b9a; font-size: 11px;
+      flex-shrink: 0; transition: transform 0.2s ease; }
+    #users-table tr.expanded .card-chevron { transform: rotate(90deg); color: #5ba3ff; }
+    .user-card-header { cursor: pointer; user-select: none; }
+    .user-card-header::before { display: none !important; }
+    #users-table td.user-detail { display: none; }
+    #users-table tr.expanded td.user-detail { display: block; }
+  }
 </style>
 </head>
 <body>
@@ -696,8 +923,10 @@ def _admin_page() -> str:
 </div>
 
 <!-- Activity feed -->
-<div class="section">
-  <h2>Recent Activity</h2>
+<div class="section" id="activity-section">
+  <h2 class="section-toggle" onclick="toggleSection('activity-section','activity-list')">
+    Recent Activity <span class="section-chevron" id="activity-chevron">&#9658;</span>
+  </h2>
   <div class="activity-list" id="activity-list">
     <div class="empty-activity">Loading…</div>
   </div>
@@ -750,7 +979,34 @@ def _admin_page() -> str:
 
 <div class="toast" id="toast"></div>
 
+<!-- Admin audit log -->
+<div class="section" id="audit-section">
+  <h2>Admin Audit Log</h2>
+  <table id="audit-table">
+    <thead>
+      <tr>
+        <th>Admin</th>
+        <th>Action</th>
+        <th>Target</th>
+        <th>Details</th>
+        <th>When</th>
+      </tr>
+    </thead>
+    <tbody id="audit-body">
+      <tr><td colspan="5" class="empty">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
 <script>
+function toggleUserCard(td) {
+  td.closest('tr').classList.toggle('expanded');
+}
+
+function toggleSection(sectionId, contentId) {
+  document.getElementById(sectionId).classList.toggle('expanded');
+}
+
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -845,15 +1101,23 @@ function renderUsers(users) {
       ? `<a class="btn-stripe" href="https://dashboard.stripe.com/customers/${escHtml(u.stripe_customer_id)}" target="_blank" rel="noopener">Stripe &#x2197;</a>`
       : '';
     return `<tr class="${rowCls}" data-email="${emailSafe}" data-status="${status}">
-      <td>${emailSafe}${churnHtml}</td>
-      <td><span class="badge ${badgeCls}">${status}</span></td>
-      <td>${planHtml}</td>
-      <td>${setupHtml}</td>
-      <td>${signedUp}</td>
-      <td>${lastLogin}</td>
-      <td>${lastActive}</td>
-      <td>${countHtml}</td>
-      <td>
+      <td class="user-card-header" onclick="toggleUserCard(this)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span>${emailSafe}${churnHtml}</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span class="badge ${badgeCls} mobile-status">${status}</span>
+            <span class="card-chevron">&#9658;</span>
+          </div>
+        </div>
+      </td>
+      <td class="user-detail" data-label="Status"><span class="badge ${badgeCls}">${status}</span></td>
+      <td class="user-detail" data-label="Plan">${planHtml}</td>
+      <td class="user-detail" data-label="Setup">${setupHtml}</td>
+      <td class="user-detail" data-label="Signed Up">${signedUp}</td>
+      <td class="user-detail" data-label="Last Login">${lastLogin}</td>
+      <td class="user-detail" data-label="Last Active">${lastActive}</td>
+      <td class="user-detail" data-label="Activity">${countHtml}</td>
+      <td class="user-detail" data-label="Manage">
         <button class="action-btn btn-activate" onclick="activate('${emailSafe}')">Activate</button>
         <button class="action-btn btn-revoke"   onclick="revoke('${emailSafe}')">Revoke</button>
         <button class="btn-view"                onclick="openModal('${emailSafe}')">Activity</button>
@@ -1135,9 +1399,9 @@ async function loadRevoked() {
       const email = escHtml(r.email);
       const when  = r.revoked_at ? relativeTime(r.revoked_at) || formatDate(r.revoked_at) : '—';
       return `<tr data-email="${email}">
-        <td>${email}</td>
-        <td class="ts-cell">${escHtml(when)}</td>
-        <td><button class="action-btn btn-revoke" onclick="removeRevoked('${email}')">Remove from list</button></td>
+        <td data-label="Email">${email}</td>
+        <td data-label="Revoked" class="ts-cell">${escHtml(when)}</td>
+        <td data-label="Action"><button class="action-btn btn-revoke" onclick="removeRevoked('${email}')">Remove from list</button></td>
       </tr>`;
     }).join('');
   } catch(e) {
@@ -1177,6 +1441,29 @@ async function clearSignups() {
   document.getElementById('new-signups-banner').style.display = 'none';
 }
 
+// ---- Audit log ----
+async function loadAuditLog() {
+  const tbody = document.getElementById('audit-body');
+  try {
+    const res = await fetch('/api/admin/audit-log');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load.</td></tr>'; return; }
+    const data = await res.json();
+    if (!data.entries || data.entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No admin actions recorded yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.entries.map(e => `<tr>
+      <td style="font-size:13px">${escHtml(e.admin || '—')}</td>
+      <td style="font-size:13px;font-family:monospace;color:#bbdaff">${escHtml(e.action || '—')}</td>
+      <td style="font-size:13px">${escHtml(e.target || '—')}</td>
+      <td style="font-size:12px;color:#7285b7">${escHtml(e.details || '')}</td>
+      <td class="ts-cell">${escHtml(relativeTime(e.ts) || e.ts)}</td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Failed to load: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
 // ---- Init ----
 loadStats();
 loadUsers();
@@ -1185,6 +1472,7 @@ loadAnalytics();
 loadBilling();
 loadRevoked();
 loadNewSignups();
+loadAuditLog();
 </script>
 </body>
 </html>"""

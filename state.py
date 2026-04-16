@@ -11,7 +11,49 @@ from datetime import datetime
 import bcrypt
 import redis.asyncio as aioredis
 
+from utils.encryption import TokenDecryptionError, decrypt, encrypt
+
+# Sensitive fields in the user record that are encrypted at rest.
+_SENSITIVE_USER_FIELDS = ("notion_token", "gemini_api_key")
+
 TEAMS = ["content", "social", "video", "seo_audit", "on_page_opt"]
+
+# ---------------------------------------------------------------------------
+# Stage rollback map — used by routers to recover from agent failures
+# ---------------------------------------------------------------------------
+
+STAGE_ROLLBACK: dict[str, dict[str, str]] = {
+    "content": {
+        "researching": "idle",
+        "planning":    "awaiting_topic",
+        "writing":     "awaiting_write",
+    },
+    "social": {
+        "scouting":      "idle",
+        "strategising":  "awaiting_idea",
+        "writing_posts": "awaiting_copy",
+    },
+    "video": {
+        "directing": "idle",
+    },
+    "seo_audit": {
+        "auditing":      "idle",
+        "analysing":     "awaiting_analyse",
+        "recommending":  "awaiting_recommend",
+        "implementing":  "awaiting_implement",
+    },
+    "on_page_opt": {
+        "analysing":  "idle",
+        "rewriting":  "awaiting_rewrite",
+        "researching": "idle",
+        "writing":    "awaiting_write",
+    },
+}
+
+
+def get_rollback_stage(team: str, current_stage: str) -> str:
+    """Return the safe fallback stage for a team + active stage after a failure."""
+    return STAGE_ROLLBACK.get(team, {}).get(current_stage, "idle")
 
 redis_client: aioredis.Redis = aioredis.from_url(
     os.environ.get("REDIS_URL", "redis://localhost:6379"),
@@ -46,7 +88,19 @@ async def save_session(sid: str, data: dict) -> None:
 
 async def get_user(user_id: str) -> dict | None:
     raw = await redis_client.get(f"user:{user_id}")
-    return json.loads(raw) if raw else None
+    if not raw:
+        return None
+    data = json.loads(raw)
+    # Decrypt sensitive fields.  If decryption fails the value is legacy
+    # plaintext — clear it so the user is prompted to reconnect.
+    for field in _SENSITIVE_USER_FIELDS:
+        val = data.get(field)
+        if val:
+            try:
+                data[field] = decrypt(val)
+            except TokenDecryptionError:
+                data[field] = ""
+    return data
 
 
 async def get_user_by_email(email: str) -> dict | None:
@@ -58,7 +112,12 @@ async def get_user_by_email(email: str) -> dict | None:
 
 
 async def save_user(user_id: str, data: dict) -> None:
-    await redis_client.setex(f"user:{user_id}", USER_TTL, json.dumps(data))
+    to_store = data.copy()
+    for field in _SENSITIVE_USER_FIELDS:
+        val = to_store.get(field)
+        if val:
+            to_store[field] = encrypt(val)
+    await redis_client.setex(f"user:{user_id}", USER_TTL, json.dumps(to_store))
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +320,28 @@ async def delete_history_item(email: str, item_id: str) -> bool:
             await redis_client.lrem(key, 1, raw)
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Admin audit log
+# ---------------------------------------------------------------------------
+
+async def log_admin_action(admin_email: str, action: str, target: str, details: str = "") -> None:
+    """Append an admin action to the audit log (capped at 500 entries)."""
+    entry = {
+        "admin": admin_email,
+        "action": action,
+        "target": target,
+        "details": details,
+        "ts": datetime.utcnow().isoformat() + "Z",
+    }
+    await redis_client.lpush("admin_audit_log", json.dumps(entry))
+    await redis_client.ltrim("admin_audit_log", 0, 499)
+
+
+async def get_admin_audit_log(limit: int = 100) -> list[dict]:
+    items = await redis_client.lrange("admin_audit_log", 0, limit - 1)
+    return [json.loads(i) for i in items]
 
 
 # ---------------------------------------------------------------------------
