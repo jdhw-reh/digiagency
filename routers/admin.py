@@ -95,6 +95,11 @@ async def _get_admin_email(cookie: str | None) -> str | None:
         await redis_client.delete(f"admin_session:{cookie}")
         return None
 
+    if not isinstance(data, dict):
+        # json.loads("1") returns int 1 — still a legacy session
+        await redis_client.delete(f"admin_session:{cookie}")
+        return None
+
     last_seen_str = data.get("last_seen", "")
     if last_seen_str:
         try:
