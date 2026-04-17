@@ -157,19 +157,6 @@
     }
     #plan-agency {
       grid-column: 1 / -1;
-      text-align: left;
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-    }
-    #plan-agency .plan-option__left {
-      flex-shrink: 0;
-    }
-    #plan-agency .plan-option__feats {
-      font-size: 11px;
-      color: #898780;
-      line-height: 1.7;
-      margin-top: 2px;
     }
     #plan-agency.selected {
       border-color: #8b5cf6;
@@ -326,19 +313,10 @@
             <div class="plan-option__desc">Unlimited runs · all agents</div>
           </button>
           <button type="button" class="plan-option" id="plan-agency" onclick="selectPlan('agency')">
-            <div class="plan-option__left">
-              <div class="plan-badge">Agency</div>
-              <div class="plan-option__name">Agency</div>
-              <div class="plan-option__price">£149<span>/mo</span></div>
-              <div class="plan-option__desc">For teams &amp; agencies</div>
-            </div>
-            <div class="plan-option__feats">
-              ✓ Everything in Pro<br>
-              ✓ 5 team seats included<br>
-              ✓ Unlimited usage across all tools<br>
-              ✓ Shared team workspace<br>
-              ✓ Join request management
-            </div>
+            <div class="plan-badge">Teams</div>
+            <div class="plan-option__name">Agency</div>
+            <div class="plan-option__price">£149<span>/mo</span></div>
+            <div class="plan-option__desc">5 seats · unlimited usage · shared workspace</div>
           </button>
         </div>
       </div>
