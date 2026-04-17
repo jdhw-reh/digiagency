@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 LIMITS: dict[str, dict[str, int]] = {
     "starter": {"minute": 20,  "hour": 200},
     "pro":     {"minute": 60,  "hour": 600},
+    "agency":  {"minute": 60,  "hour": 600},
 }
 
 

@@ -12,6 +12,7 @@ Events handled:
 import asyncio
 import json
 import os
+import secrets
 import time
 
 import httpx
@@ -124,9 +125,21 @@ async def stripe_webhook(request: Request):
                 account["stripe_customer_id"] = getattr(obj, "customer", None)
                 account["stripe_subscription_id"] = getattr(obj, "subscription", None)
                 account["plan"] = plan
+
+                workspace_code: str | None = None
+                if plan == "agency":
+                    raw = secrets.token_urlsafe(4).upper()
+                    workspace_code = f"{raw[:4]}-{raw[4:]}"
+                    account["workspace_code"] = workspace_code
+                    await redis_client.setex(
+                        f"workspace_code:{workspace_code}",
+                        400 * 86400,
+                        email,
+                    )
+
                 await save_account(email, account)
                 await _notify_admin_new_signup(email, plan)
-                asyncio.create_task(send_subscription_activated_email(email, plan))
+                asyncio.create_task(send_subscription_activated_email(email, plan, workspace_code))
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
         customer_id = getattr(obj, "customer", None)

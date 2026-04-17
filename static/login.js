@@ -1,8 +1,11 @@
 "use strict";
 
+const _VALID_PLANS = ["starter", "pro", "agency"];
+
 function selectPlan(plan) {
   document.getElementById("plan-starter").classList.toggle("selected", plan === "starter");
   document.getElementById("plan-pro").classList.toggle("selected", plan === "pro");
+  document.getElementById("plan-agency").classList.toggle("selected", plan === "agency");
   sessionStorage.setItem("selected_plan", plan);
 }
 
@@ -121,9 +124,7 @@ async function doRegister() {
 
     // Account created — now redirect to Stripe Checkout
     btn.textContent = "Redirecting to payment…";
-    const plan = document.getElementById("plan-starter")?.classList.contains("selected")
-      ? "starter"
-      : "pro";
+    const plan = _VALID_PLANS.find(p => document.getElementById(`plan-${p}`)?.classList.contains("selected")) || "pro";
     const checkoutRes = await fetch(`/api/checkout/session?plan=${plan}`, { method: "POST" });
     let checkoutData = {};
     try { checkoutData = await checkoutRes.json(); } catch { /* non-JSON */ }
@@ -230,11 +231,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const plan = params.get("plan");
-  if (plan === "starter" || plan === "pro") {
+  if (_VALID_PLANS.includes(plan)) {
     selectPlan(plan);
   } else {
     const stored = sessionStorage.getItem("selected_plan");
-    if (stored === "starter" || stored === "pro") selectPlan(stored);
+    if (_VALID_PLANS.includes(stored)) selectPlan(stored);
   }
 
   const checkout = params.get("checkout");

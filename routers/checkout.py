@@ -36,11 +36,18 @@ async def create_checkout_session(
     if not account:
         return JSONResponse({"error": "Account not found"}, status_code=404)
 
+    if plan not in ("starter", "pro", "agency"):
+        return JSONResponse({"error": f"Invalid plan: {plan!r}"}, status_code=400)
+
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
     app_url = os.environ.get("APP_URL", _DEFAULT_APP_URL).rstrip("/")
 
     if plan == "starter":
         price_id = os.environ.get("STRIPE_PRICE_ID_STARTER")
+    elif plan == "agency":
+        price_id = os.environ.get("STRIPE_PRICE_ID_AGENCY")
+        if not price_id:
+            return JSONResponse({"error": "STRIPE_PRICE_ID_AGENCY is not configured — set this env var in Railway"}, status_code=500)
     else:
         price_id = os.environ.get("STRIPE_PRICE_ID_PRO")
 

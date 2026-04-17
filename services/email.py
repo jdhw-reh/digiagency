@@ -160,18 +160,38 @@ async def send_welcome_email(to: str) -> None:
 _PLAN_LABELS = {
     "starter": ("Starter", "£29/month"),
     "pro": ("Pro", "£49/month"),
+    "agency": ("Agency", "£149/month"),
 }
 
 
-async def send_subscription_activated_email(to: str, plan: str) -> None:
+async def send_subscription_activated_email(to: str, plan: str, workspace_code: str | None = None) -> None:
     app = _app_url()
     plan_name, plan_price = _PLAN_LABELS.get(plan.lower(), (plan.capitalize(), ""))
     price_line = f" ({plan_price})" if plan_price else ""
     subject = "Your Digi Agency subscription is active"
+
+    workspace_html = ""
+    workspace_text = ""
+    if plan.lower() == "agency" and workspace_code:
+        workspace_html = (
+            _divider()
+            + _p('<strong style="color:#ffffff;">Your team workspace code</strong>')
+            + f'<p style="margin:0 0 14px;font-size:22px;font-weight:700;letter-spacing:0.08em;color:#8b5cf6;">{workspace_code}</p>'
+            + _p(
+                "Share this code with your team members so they can request access to your workspace. "
+                "It is valid for 400 days."
+            )
+        )
+        workspace_text = (
+            f"\nYour team workspace code: {workspace_code}\n"
+            "Share this with your team members so they can request access to your workspace.\n"
+        )
+
     content = (
         _h1("Your subscription is active ✦")
         + _p(f"You're now on the <strong style=\"color:#ffffff;\">{plan_name} plan{price_line}</strong>. Your AI marketing team is ready.")
         + _btn("Go to the app →", f"{app}/")
+        + workspace_html
         + _divider()
         + _p('<strong style="color:#ffffff;">Getting started</strong>')
         + _p(
@@ -184,8 +204,9 @@ async def send_subscription_activated_email(to: str, plan: str) -> None:
     html_body = _wrap_html(subject, content)
     text_body = (
         f"Your Digi Agency subscription is active!\n\n"
-        f"Plan: {plan_name}{price_line}\n\n"
-        "Getting started:\n"
+        f"Plan: {plan_name}{price_line}\n"
+        + workspace_text
+        + "\nGetting started:\n"
         "1. Connect Notion — go to the Setup tab and paste your integration token.\n"
         "2. Pick a team — try the Content Team or SEO Audit first.\n"
         "3. Run your first agent.\n\n"

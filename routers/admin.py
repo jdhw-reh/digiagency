@@ -365,7 +365,7 @@ async def admin_analytics(agency_admin: str | None = Cookie(default=None)):
     return {**counters, "signup_trend": signup_trend}
 
 
-_PLAN_PRICE_PENCE = {"starter": 2900, "pro": 4900}
+_PLAN_PRICE_PENCE = {"starter": 2900, "pro": 4900, "agency": 14900}
 
 
 @router.get("/api/admin/billing")
@@ -1085,8 +1085,9 @@ function renderUsers(users) {
     const status    = u.subscription_status || 'inactive';
     const badgeCls  = status === 'active' ? 'badge-active' : status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
     const plan      = u.plan || '—';
+    const planColor = {"starter": "#6366f1", "pro": "#f59e0b", "agency": "#8b5cf6"}[plan] || "#bbdaff";
     const planHtml  = plan !== '—'
-      ? `<span style="font-size:12px;font-weight:600;color:${plan==='pro'?'#ffc58f':'#bbdaff'}">${plan}</span>`
+      ? `<span style="font-size:12px;font-weight:600;color:${planColor}">${escHtml(plan.charAt(0).toUpperCase() + plan.slice(1))}</span>`
       : `<span style="color:#4a7aa0;font-size:12px">—</span>`;
     const signedUp  = formatDate(u.created_at);
     const lastLogin = u.last_login_at
