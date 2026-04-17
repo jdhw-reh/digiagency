@@ -304,3 +304,41 @@ def unsubscribe_notifications(q: asyncio.Queue) -> None:
         _notification_subscribers.remove(q)
     except ValueError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Stage rollback map — returns the stage to revert to on agent error
+# ---------------------------------------------------------------------------
+
+_ROLLBACK_STAGES: dict[str, dict[str, str]] = {
+    "content": {
+        "researching": "idle",
+        "planning": "awaiting_topic",
+        "writing": "awaiting_write",
+    },
+    "social": {
+        "scouting": "idle",
+        "strategising": "awaiting_idea",
+        "writing_posts": "awaiting_copy",
+    },
+    "seo_audit": {
+        "auditing": "idle",
+        "analysing": "awaiting_analyse",
+        "recommending": "awaiting_recommend",
+        "implementing": "awaiting_implement",
+    },
+    "on_page_opt": {
+        "analysing": "idle",
+        "rewriting": "awaiting_rewrite",
+        "researching": "idle",
+        "writing": "awaiting_write",
+    },
+    "video": {
+        "directing": "idle",
+    },
+}
+
+
+def get_rollback_stage(team: str, current_stage: str) -> str:
+    """Return the stage to revert to when an agent errors mid-run."""
+    return _ROLLBACK_STAGES.get(team, {}).get(current_stage, "idle")
