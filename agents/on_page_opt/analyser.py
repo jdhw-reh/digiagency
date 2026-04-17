@@ -16,56 +16,7 @@ import threading
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-ANALYSER_SYSTEM_PROMPT = """You are a senior on-page SEO specialist with deep expertise in \
-content optimisation, search intent, and semantic SEO. You analyse page copy with precision, \
-identifying exactly what is hurting rankings and what needs to change.
-
-You do not guess — every issue you flag is grounded in SEO best practice and tied to a \
-specific part of the copy. You are direct, specific and actionable.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-ANALYSER_PROMPT = """Analyse the following page copy for on-page SEO issues.
-
-Page type: {page_type}
-Target keyword: {target_keyword}
-{audit_context_section}
-
---- PAGE COPY ---
-{copy}
---- END COPY ---
-
-Produce a structured on-page SEO analysis with these sections:
-
-## Search Intent Assessment
-Does this copy match the search intent for "{target_keyword}"? Is it informational, transactional, \
-navigational or commercial? Does the content align? (2–3 sentences)
-
-## Keyword & Semantic Issues
-- Is the target keyword used naturally and at an appropriate density?
-- Are relevant semantic / LSI terms missing?
-- List specific missing keywords or phrases that should appear on this page type
-
-## Content Structure Issues
-- Heading hierarchy (H1, H2, H3) — is it logical and keyword-rich?
-- Is there a clear value proposition above the fold?
-- Does the copy guide the user through a logical flow?
-
-## Thin Content & Gaps
-- Word count adequacy for this page type
-- Missing sections that competitors typically include
-- Any content that adds no SEO or user value
-
-## Meta & Technical Copy Issues
-- Title tag recommendation (if derivable from copy)
-- Meta description suggestion
-- Any other on-page copy elements to fix
-
-## Priority Fixes (Top 5)
-List the 5 highest-impact changes, ordered by impact. Be specific — quote the copy where relevant.
-
-Keep the analysis tight and actionable. Reference specific sentences or phrases from the copy."""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 async def run(copy: str, target_keyword: str, page_type: str, audit_context: str = "", api_key: str = ""):
@@ -79,7 +30,8 @@ async def run(copy: str, target_keyword: str, page_type: str, audit_context: str
     if audit_context.strip():
         audit_context_section = f"\nSEO Audit context (technical findings for this site):\n{audit_context}\n"
 
-    prompt = ANALYSER_PROMPT.format(
+    prompt = get_user_prompt(
+        "on_page_opt/analyser",
         page_type=page_type or "General page",
         target_keyword=target_keyword or "not specified",
         audit_context_section=audit_context_section,
@@ -94,7 +46,7 @@ async def run(copy: str, target_keyword: str, page_type: str, audit_context: str
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=ANALYSER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("on_page_opt/analyser"),
                 temperature=0.3,
             ),
             result_queue,
@@ -107,7 +59,7 @@ async def run(copy: str, target_keyword: str, page_type: str, audit_context: str
     while True:
         try:
             kind, value = await loop.run_in_executor(
-                None, lambda: result_queue.get(timeout=90)
+                None, lambda: result_queue.get(timeout=120)
             )
         except queue.Empty:
             yield ("error", "Analyser timed out")

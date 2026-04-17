@@ -22,80 +22,7 @@ from bs4 import BeautifulSoup
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-AUDITOR_SYSTEM_PROMPT = """You are a senior technical SEO consultant with 15 years of experience. \
-You audit websites for SEO performance and identify concrete opportunities for improvement.
-
-You have access to real-time Google Search AND a pre-crawled technical report of the site. \
-Use both to produce a complete, evidence-based audit.
-
-Use Google Search to:
-1. Check what the target domain currently ranks for
-2. Identify what competitors rank for that the target doesn't
-3. Find keyword gaps and missed opportunities
-4. Assess the competitive landscape in the niche
-
-Be specific and ground every observation in actual findings — not assumptions.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-AUDITOR_PROMPT = """Audit this website for SEO performance:
-
-URL: {url}
-Business context: {context}
-Detected CMS: {cms}
-
---- TECHNICAL CRAWL RESULTS ---
-{technical_summary}
---- END TECHNICAL CRAWL ---
-
-Now conduct a live competitive audit using Google Search. Investigate:
-1. What does this domain currently rank for? Search brand name and key service terms.
-2. What are their top 3–5 competitors ranking for that they're missing?
-3. What high-value keywords in this niche have low-to-medium competition?
-4. Are there obvious content gaps or quick wins based on the technical issues above?
-
-Write a 4–5 paragraph audit commentary covering both the technical findings and \
-competitive landscape. Reference specific issues from the crawl where relevant.
-
-Then output your structured findings as JSON enclosed in <audit_data> and </audit_data> tags:
-
-<audit_data>
-{{
-  "domain": "example.com",
-  "cms": "{cms}",
-  "technical_score": 7,
-  "technical_issues": [
-    {{"issue": "Missing meta description", "severity": "high"}},
-    {{"issue": "No schema markup detected", "severity": "medium"}}
-  ],
-  "technical_signals": {{
-    "title": "Page title here",
-    "title_length": 45,
-    "meta_description": "Description here or null",
-    "meta_description_length": 120,
-    "h1_count": 1,
-    "h1_texts": ["Main heading"],
-    "h2_count": 4,
-    "canonical": "https://example.com/",
-    "robots_meta": "index, follow",
-    "schema_types": ["Organization"],
-    "og_title": "OG title or null",
-    "images_missing_alt": 3,
-    "total_images": 12,
-    "internal_links": 24,
-    "external_links": 5,
-    "https": true,
-    "has_viewport": true,
-    "word_count_estimate": 450
-  }},
-  "target_keywords": ["kw1", "kw2"],
-  "missing_keywords": ["kw3", "kw4"],
-  "top_competitors": ["competitor1.com", "competitor2.com"],
-  "authority_gaps": ["topic area 1", "topic area 2"],
-  "quick_wins": ["specific action 1", "specific action 2", "specific action 3"]
-}}
-</audit_data>"""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +257,8 @@ async def run(url: str, context: str, api_key: str = ""):
 
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
-    prompt = AUDITOR_PROMPT.format(
+    prompt = get_user_prompt(
+        "seo_audit/auditor",
         url=url,
         context=context,
         cms=cms,
@@ -345,7 +273,7 @@ async def run(url: str, context: str, api_key: str = ""):
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=AUDITOR_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("seo_audit/auditor"),
                 temperature=0.3,
             ),
             result_queue,
@@ -359,7 +287,7 @@ async def run(url: str, context: str, api_key: str = ""):
     while True:
         try:
             kind, value = await loop.run_in_executor(
-                None, lambda: result_queue.get(timeout=90)
+                None, lambda: result_queue.get(timeout=120)
             )
         except queue.Empty:
             yield ("error", "Auditor timed out")

@@ -4,11 +4,15 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
+import sys
+
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item, get_rollback_stage, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.on_page_opt import analyser, researcher, copywriter
 from services.agency_log import log_task
@@ -88,7 +92,10 @@ class SessionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session")
-async def create_session(payload: CreateSessionPayload):
+async def create_session(
+    payload: CreateSessionPayload,
+    _: None = Depends(ToolAccess("on_page_opt")),
+):
     sid = str(uuid.uuid4())
     defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
     await get_session(sid, "on_page_opt", defaults)
@@ -138,10 +145,10 @@ async def start_review(req: StartReviewRequest, agency_token: str | None = Cooki
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
     sess["mode"] = "review"
-    sess["original_copy"] = req.copy
-    sess["target_keyword"] = req.target_keyword
-    sess["page_type"] = req.page_type
-    sess["audit_context"] = req.audit_context
+    sess["original_copy"] = sanitise_user_input(req.copy, user_id=sess.get("user_id"))
+    sess["target_keyword"] = sanitise_user_input(req.target_keyword, user_id=sess.get("user_id"))
+    sess["page_type"] = sanitise_user_input(req.page_type, user_id=sess.get("user_id"))
+    sess["audit_context"] = sanitise_user_input(req.audit_context, user_id=sess.get("user_id"))
     sess["analysis"] = ""
     sess["final_copy"] = ""
     sess["notion_url"] = None
@@ -165,26 +172,35 @@ async def stream_analysis(session_id: str, agency_token: str | None = Cookie(def
 
     async def generate():
         full_text = ""
-        async for kind, value in analyser.run(
-            copy=sess["original_copy"],
-            target_keyword=sess["target_keyword"],
-            page_type=sess["page_type"],
-            audit_context=sess["audit_context"],
-            api_key=api_key,
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["analysis"] = full_text
-                sess["stage"] = "awaiting_rewrite"
-                await save_session(session_id, sess)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "idle"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in analyser.run(
+                copy=sess["original_copy"],
+                target_keyword=sess["target_keyword"],
+                page_type=sess["page_type"],
+                audit_context=sess["audit_context"],
+                api_key=api_key,
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["analysis"] = full_text
+                    sess["stage"] = "awaiting_rewrite"
+                    await save_session(session_id, sess)
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("on_page_opt", "analysing")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] on_page_opt/analysis session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("on_page_opt", "analysing")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -213,38 +229,49 @@ async def stream_rewrite(session_id: str, agency_token: str | None = Cookie(defa
 
     async def generate():
         full_text = ""
-        async for kind, value in copywriter.run(
-            mode="review",
-            page_type=sess["page_type"],
-            original_copy=sess["original_copy"],
-            target_keyword=sess["target_keyword"],
-            analysis=sess["analysis"],
-            api_key=api_key,
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["final_copy"] = full_text
-                sess["stage"] = "done"
-                await save_session(session_id, sess)
-                await log_activity("on_page_opt", f"Optimised copy: {sess['page_type']}", email=email)
-                user = await get_user(sess.get("user_id", ""))
-                u = user or {}
-                asyncio.ensure_future(log_task(
-                    "On-Page Opt", "On-Page Opt", f"Review: {sess['page_type']} — {sess['target_keyword']}",
-                    notion_token=u.get("notion_token", ""),
-                    db_id=u.get("notion_agency_log_db_id", ""),
-                ))
-                if email and full_text:
-                    title = f"Review: {sess['page_type']} — {sess['target_keyword']}"
-                    await log_history_item(email, "On-Page Optimiser", title, full_text)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "awaiting_rewrite"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in copywriter.run(
+                mode="review",
+                page_type=sess["page_type"],
+                original_copy=sess["original_copy"],
+                target_keyword=sess["target_keyword"],
+                analysis=sess["analysis"],
+                api_key=api_key,
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["final_copy"] = full_text
+                    sess["stage"] = "done"
+                    await save_session(session_id, sess)
+                    await log_activity("on_page_opt", f"Optimised copy: {sess['page_type']}", email=email)
+                    user = await get_user(sess.get("user_id", ""))
+                    u = user or {}
+                    asyncio.ensure_future(log_task(
+                        "On-Page Opt", "On-Page Opt", f"Review: {sess['page_type']} — {sess['target_keyword']}",
+                        notion_token=u.get("notion_token", ""),
+                        db_id=u.get("notion_agency_log_db_id", ""),
+                    ))
+                    if email and full_text:
+                        title = f"Review: {sess['page_type']} — {sess['target_keyword']}"
+                        await log_history_item(email, "On-Page Optimiser", title, full_text)
+                    if email:
+                        await increment_usage(redis_client, email, "on_page_opt")
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("on_page_opt", "rewriting")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] on_page_opt/rewrite session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("on_page_opt", "rewriting")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -262,10 +289,10 @@ async def start_build(req: StartBuildRequest, agency_token: str | None = Cookie(
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Session already in progress"}, status_code=400)
     sess["mode"] = "build"
-    sess["prompt"] = req.prompt
-    sess["page_type"] = req.page_type
-    sess["location"] = req.location
-    sess["audit_context"] = req.audit_context
+    sess["prompt"] = sanitise_user_input(req.prompt, user_id=sess.get("user_id"))
+    sess["page_type"] = sanitise_user_input(req.page_type, user_id=sess.get("user_id"))
+    sess["location"] = sanitise_user_input(req.location, user_id=sess.get("user_id"))
+    sess["audit_context"] = sanitise_user_input(req.audit_context, user_id=sess.get("user_id"))
     sess["keyword_data"] = {}
     sess["keyword_brief"] = ""
     sess["final_copy"] = ""
@@ -290,30 +317,39 @@ async def stream_research(session_id: str, agency_token: str | None = Cookie(def
 
     async def generate():
         full_text = ""
-        async for kind, value in researcher.run(
-            prompt=sess["prompt"],
-            page_type=sess["page_type"],
-            location=sess["location"],
-            audit_context=sess["audit_context"],
-            api_key=api_key,
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "keyword_data":
-                sess["keyword_data"] = value
-                sess["keyword_brief"] = full_text
-                await save_session(session_id, sess)
-                yield sse_event({"type": "keyword_data", "data": value})
-            elif kind == "done":
-                sess["stage"] = "awaiting_write"
-                await save_session(session_id, sess)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "idle"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in researcher.run(
+                prompt=sess["prompt"],
+                page_type=sess["page_type"],
+                location=sess["location"],
+                audit_context=sess["audit_context"],
+                api_key=api_key,
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "keyword_data":
+                    sess["keyword_data"] = value
+                    sess["keyword_brief"] = full_text
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "keyword_data", "data": value})
+                elif kind == "done":
+                    sess["stage"] = "awaiting_write"
+                    await save_session(session_id, sess)
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("on_page_opt", "researching")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] on_page_opt/research session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("on_page_opt", "researching")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -342,39 +378,50 @@ async def stream_copy(session_id: str, agency_token: str | None = Cookie(default
 
     async def generate():
         full_text = ""
-        async for kind, value in copywriter.run(
-            mode="build",
-            page_type=sess["page_type"],
-            prompt=sess["prompt"],
-            keyword_data=sess["keyword_data"],
-            keyword_brief=sess["keyword_brief"],
-            audit_context=sess["audit_context"],
-            api_key=api_key,
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["final_copy"] = full_text
-                sess["stage"] = "done"
-                await save_session(session_id, sess)
-                await log_activity("on_page_opt", f"Built page: {sess['page_type']}", email=email)
-                user = await get_user(sess.get("user_id", ""))
-                u = user or {}
-                asyncio.ensure_future(log_task(
-                    "On-Page Opt", "On-Page Opt", f"Build: {sess['page_type']} — {sess['prompt'][:60]}",
-                    notion_token=u.get("notion_token", ""),
-                    db_id=u.get("notion_agency_log_db_id", ""),
-                ))
-                if email and full_text:
-                    title = f"Build: {sess['page_type']} — {sess['prompt'][:60]}"
-                    await log_history_item(email, "On-Page Optimiser", title, full_text)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "awaiting_write"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in copywriter.run(
+                mode="build",
+                page_type=sess["page_type"],
+                prompt=sess["prompt"],
+                keyword_data=sess["keyword_data"],
+                keyword_brief=sess["keyword_brief"],
+                audit_context=sess["audit_context"],
+                api_key=api_key,
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["final_copy"] = full_text
+                    sess["stage"] = "done"
+                    await save_session(session_id, sess)
+                    await log_activity("on_page_opt", f"Built page: {sess['page_type']}", email=email)
+                    user = await get_user(sess.get("user_id", ""))
+                    u = user or {}
+                    asyncio.ensure_future(log_task(
+                        "On-Page Opt", "On-Page Opt", f"Build: {sess['page_type']} — {sess['prompt'][:60]}",
+                        notion_token=u.get("notion_token", ""),
+                        db_id=u.get("notion_agency_log_db_id", ""),
+                    ))
+                    if email and full_text:
+                        title = f"Build: {sess['page_type']} — {sess['prompt'][:60]}"
+                        await log_history_item(email, "On-Page Optimiser", title, full_text)
+                    if email:
+                        await increment_usage(redis_client, email, "on_page_opt")
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("on_page_opt", "writing")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] on_page_opt/copy session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("on_page_opt", "writing")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 

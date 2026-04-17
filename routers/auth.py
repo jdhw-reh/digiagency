@@ -7,11 +7,27 @@ POST /api/auth/logout     — deletes auth token
 GET  /api/auth/me         — returns account info for the current token
 """
 
+import asyncio
+import os
+import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Cookie, Request, Response
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from utils.csrf import (
+    create_csrf_token,
+    delete_csrf_cookie,
+    delete_csrf_token,
+    set_csrf_cookie,
+    verify_csrf_token,
+)
+
+# Cookies must be sent over HTTPS only.  Railway enforces TLS in production, so
+# secure=True is always correct there.  Local dev can set ENVIRONMENT=development
+# to allow the cookie over plain HTTP (e.g. http://localhost:8000).
+_SECURE_COOKIES = os.getenv("ENVIRONMENT", "production") != "development"
 
 from state import (
     create_auth_token,
@@ -19,9 +35,13 @@ from state import (
     get_account,
     get_token_email,
     hash_password,
+    redis_client,
     save_account,
     verify_password,
 )
+from services.email import send_password_reset_email, send_welcome_email
+
+_PWD_RESET_TTL = 3600  # 1 hour
 
 router = APIRouter()
 
@@ -40,7 +60,7 @@ def _set_token_cookie(response: Response, token: str) -> None:
         max_age=_COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,  # set to True once on HTTPS (Railway handles TLS)
+        secure=_SECURE_COOKIES,  # True in production (Railway enforces HTTPS); False only when ENVIRONMENT=development
     )
 
 
@@ -51,6 +71,15 @@ def _set_token_cookie(response: Response, token: str) -> None:
 class AuthPayload(BaseModel):
     email: str
     password: str
+
+
+class ForgotPasswordPayload(BaseModel):
+    email: str
+
+
+class ResetPasswordPayload(BaseModel):
+    token: str
+    new_password: str
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +108,10 @@ async def register(payload: AuthPayload, response: Response):
 
     token = await create_auth_token(email)
     _set_token_cookie(response, token)
+    csrf_token = await create_csrf_token(token)
+    set_csrf_cookie(response, csrf_token)
+
+    asyncio.create_task(send_welcome_email(email))
 
     return {"ok": True, "email": email, "subscription_status": "inactive"}
 
@@ -96,6 +129,8 @@ async def login(payload: AuthPayload, response: Response):
 
     token = await create_auth_token(email)
     _set_token_cookie(response, token)
+    csrf_token = await create_csrf_token(token)
+    set_csrf_cookie(response, csrf_token)
 
     return {
         "ok": True,
@@ -104,12 +139,49 @@ async def login(payload: AuthPayload, response: Response):
     }
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(verify_csrf_token)])
 async def logout(response: Response, agency_token: str | None = Cookie(default=None)):
     if agency_token:
         await delete_auth_token(agency_token)
+        await delete_csrf_token(agency_token)
     response.delete_cookie(_COOKIE)
+    delete_csrf_cookie(response)
     return {"ok": True}
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordPayload):
+    email = payload.email.lower().strip()
+    account = await get_account(email)
+    if account:
+        token = secrets.token_urlsafe(32)
+        await redis_client.setex(f"pwd_reset:{token}", _PWD_RESET_TTL, email)
+        asyncio.create_task(send_password_reset_email(email, token))
+    # Always return 200 — never reveal whether the email exists.
+    return {"ok": True, "message": "If that email is registered, a reset link is on its way."}
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordPayload):
+    token = payload.token.strip()
+    new_password = payload.new_password.strip()
+
+    if len(new_password) < 8:
+        return JSONResponse({"error": "Password must be at least 8 characters."}, status_code=400)
+
+    email = await redis_client.get(f"pwd_reset:{token}")
+    if not email:
+        return JSONResponse({"error": "Invalid or expired reset link."}, status_code=400)
+
+    account = await get_account(email)
+    if not account:
+        return JSONResponse({"error": "Invalid or expired reset link."}, status_code=400)
+
+    account["password_hash"] = hash_password(new_password)
+    await save_account(email, account)
+    await redis_client.delete(f"pwd_reset:{token}")
+
+    return {"ok": True, "message": "Password updated. You can now sign in with your new password."}
 
 
 @router.get("/me")

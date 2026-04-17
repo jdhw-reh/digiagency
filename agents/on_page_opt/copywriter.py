@@ -16,78 +16,7 @@ import threading
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-COPYWRITER_SYSTEM_PROMPT = """You are an expert SEO copywriter who produces copy that ranks \
-and converts. You write with authority, clarity and natural keyword integration. Your copy \
-is structured for both search engines and humans — clear headings, scannable sections, \
-strong calls to action.
-
-You never keyword-stuff. You write like a human expert, not a machine. Every page you \
-produce has a clear purpose, a strong value proposition and a logical flow from top to bottom.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-REWRITE_PROMPT = """You have analysed the following page copy and identified on-page SEO issues. \
-Now rewrite the copy to fix all identified problems.
-
-Page type: {page_type}
-Target keyword: {target_keyword}
-
---- ORIGINAL COPY ---
-{original_copy}
---- END ORIGINAL COPY ---
-
---- SEO ANALYSIS (issues to fix) ---
-{analysis}
---- END ANALYSIS ---
-
-Rewrite the copy applying all priority fixes from the analysis. Follow these rules:
-- Integrate the target keyword naturally into the H1, first paragraph, and at least 2 subheadings
-- Include semantic / LSI terms highlighted in the analysis
-- Fix any thin content sections by expanding them
-- Correct the heading hierarchy
-- Match the search intent perfectly
-- Write a suggested title tag (50–60 chars) and meta description (140–160 chars) at the top
-
-Format the output as:
-**Title Tag:** [your suggested title]
-**Meta Description:** [your suggested meta description]
-
----
-
-[Full rewritten copy with headings in markdown format]
-
-Maintain the client's voice and any factual details from the original. Do not invent \
-specific claims, prices or credentials that weren't in the original."""
-
-BUILD_PROMPT = """Write a full {page_type} optimised for search using the keyword research below.
-
---- KEYWORD BRIEF ---
-{keyword_brief}
---- END KEYWORD BRIEF ---
-
-{audit_context_section}
-Additional context: {prompt}
-
-Write a complete, publish-ready {page_type} following these rules:
-- H1 must contain the primary keyword
-- Include all secondary keywords and LSI terms naturally throughout
-- Structure with clear H2 sections that answer the key questions from the brief
-- Recommended word count: {word_count} words
-- Match the search intent: {search_intent}
-- Include a strong CTA section at the end
-- Write a suggested title tag (50–60 chars) and meta description (140–160 chars) at the top
-
-Format the output as:
-**Title Tag:** [your suggested title]
-**Meta Description:** [your suggested meta description]
-
----
-
-[Full page copy with headings in markdown format]
-
-Write in a professional but approachable tone. Be specific — include relevant details \
-for this type of page. Avoid generic filler content."""
+from utils.prompts import get_system_prompt, load_prompt
 
 
 async def run(
@@ -114,8 +43,10 @@ async def run(
 
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
+    _prompts = load_prompt("on_page_opt/copywriter")
+
     if mode == "review":
-        full_prompt = REWRITE_PROMPT.format(
+        full_prompt = _prompts["user_prompt_template_review"].format(
             page_type=page_type or "General page",
             target_keyword=target_keyword or "not specified",
             original_copy=original_copy,
@@ -128,7 +59,7 @@ async def run(
         if audit_context.strip():
             audit_context_section = f"SEO Audit context:\n{audit_context}\n"
 
-        full_prompt = BUILD_PROMPT.format(
+        full_prompt = _prompts["user_prompt_template_build"].format(
             page_type=page_type or "service page",
             keyword_brief=brief_str,
             audit_context_section=audit_context_section,
@@ -145,7 +76,7 @@ async def run(
             "gemini-2.5-flash",
             full_prompt,
             types.GenerateContentConfig(
-                system_instruction=COPYWRITER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("on_page_opt/copywriter"),
                 temperature=0.5,
             ),
             result_queue,

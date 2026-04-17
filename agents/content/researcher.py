@@ -13,61 +13,12 @@ import os
 import queue
 import re
 import threading
+import time
 
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-RESEARCHER_SYSTEM_PROMPT = """You are a senior SEO strategist. Your job is to identify \
-high-value blog topics for any business or niche based on the context provided.
-
-Your job is to identify high-value blog topics that:
-1. Have genuine search demand from the target audience described in the business context
-2. Match informational or commercial search intent — not navigational or transactional
-3. Can be owned by a thought leadership article of 800–1,200 words
-4. Are not already dominated by large media publications
-
-You have access to real-time Google Search. Use it to validate demand and competition before \
-recommending topics. Surface topics where the business described has a clear authority edge \
-over generic competitors.
-
-Return your research as instructed. Always ground your competition assessment in what you \
-actually find in the SERP, not assumptions.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-RESEARCHER_PROMPT = """Business context: {context}
-
-Research and discover 5–10 high-value blog topic ideas for this business. \
-Use Google Search to validate real demand and competition levels.
-
-For each topic, provide a JSON object with these exact fields:
-- title: the article headline (compelling, specific)
-- primary_keyword: exact phrase to target
-- secondary_keywords: list of 3–5 related phrases
-- search_intent: one of: informational | commercial | transactional
-- competition: one of: low | medium | high
-- estimated_monthly_searches: rough estimate string e.g. "1,000–5,000"
-- why_target: 2–3 sentence rationale grounded in your actual search findings
-
-Write a brief 2–3 paragraph research commentary explaining your overall findings and \
-the content opportunity landscape.
-
-Then output ALL topics as a single JSON array enclosed in <topics> and </topics> tags like this:
-
-<topics>
-[
-  {{
-    "title": "...",
-    "primary_keyword": "...",
-    "secondary_keywords": ["...", "..."],
-    "search_intent": "informational",
-    "competition": "medium",
-    "estimated_monthly_searches": "1,000–5,000",
-    "why_target": "..."
-  }}
-]
-</topics>"""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 async def run(business_context: str, api_key: str = ""):
@@ -84,9 +35,9 @@ async def run(business_context: str, api_key: str = ""):
         stream_with_retry(
             client,
             "gemini-2.5-flash",
-            RESEARCHER_PROMPT.format(context=business_context),
+            get_user_prompt("content/researcher", context=business_context),
             types.GenerateContentConfig(
-                system_instruction=RESEARCHER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("content/researcher"),
                 temperature=0.4,
             ),
             text_queue,
@@ -96,10 +47,15 @@ async def run(business_context: str, api_key: str = ""):
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()
 
+    deadline = time.monotonic() + 120
     while True:
         try:
             msg_type, value = text_queue.get(timeout=0.05)
+            deadline = time.monotonic() + 120  # reset on each message
         except queue.Empty:
+            if time.monotonic() > deadline:
+                yield {"type": "error", "message": "Research agent timed out after 120 seconds"}
+                return
             await asyncio.sleep(0.01)
             continue
 

@@ -6,11 +6,15 @@ import os
 import uuid
 
 from docx import Document
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Depends
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
+import sys
+
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item, get_rollback_stage, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input, validate_url
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.seo_audit import auditor, analyser, recommender, implementer
 from services.agency_log import log_task
@@ -78,7 +82,10 @@ class SessionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session")
-async def create_session(payload: CreateSessionPayload):
+async def create_session(
+    payload: CreateSessionPayload,
+    _: None = Depends(ToolAccess("seo_audit")),
+):
     sid = str(uuid.uuid4())
     defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
     await get_session(sid, "seo_audit", defaults)
@@ -101,9 +108,9 @@ async def start_audit(req: StartAuditRequest, agency_token: str | None = Cookie(
         sess["stage"] = "idle"
     if sess["stage"] not in ("idle", "done"):
         return JSONResponse({"error": "Audit already in progress"}, status_code=400)
-    sess["url"] = req.url
-    sess["audit_context"] = req.context
-    sess["competitor_urls"] = [u.strip() for u in req.competitor_urls if u.strip()]
+    sess["url"] = validate_url(req.url)
+    sess["audit_context"] = sanitise_user_input(req.context, user_id=sess.get("user_id"))
+    sess["competitor_urls"] = [validate_url(u.strip()) for u in req.competitor_urls if u.strip()]
     sess["stage"] = "auditing"
     sess["audit_data"] = {}
     sess["audit_text"] = ""
@@ -128,26 +135,39 @@ async def stream_audit(session_id: str, agency_token: str | None = Cookie(defaul
         async def no_key(): yield sse_event({"type": "error", "code": "gemini_not_configured", "message": "Gemini API key not set. Open Settings to configure it."})
         return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
+    email = await get_token_email(agency_token) if agency_token else None
+
     async def generate():
         full_text = ""
-        async for kind, value in auditor.run(sess["url"], sess["audit_context"], api_key=api_key):
-            if kind == "technical_signals":
-                yield sse_event({"type": "technical_signals", "data": value})
-            elif kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "audit_data":
-                sess["audit_data"] = value
-                sess["audit_text"] = full_text
-                sess["stage"] = "awaiting_analyse"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "audit_data", "data": value})
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "idle"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in auditor.run(sess["url"], sess["audit_context"], api_key=api_key):
+                if kind == "technical_signals":
+                    yield sse_event({"type": "technical_signals", "data": value})
+                elif kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "audit_data":
+                    sess["audit_data"] = value
+                    sess["audit_text"] = full_text
+                    sess["stage"] = "awaiting_analyse"
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "audit_data", "data": value})
+                    if email:
+                        await increment_usage(redis_client, email, "seo_audit")
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("seo_audit", "auditing")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] seo_audit/audit session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("seo_audit", "auditing")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -175,23 +195,32 @@ async def stream_analysis(session_id: str, agency_token: str | None = Cookie(def
 
     async def generate():
         full_text = ""
-        async for kind, value in analyser.run(
-            sess["url"], sess["audit_context"], sess["audit_data"],
-            api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["analysis"] = full_text
-                sess["stage"] = "awaiting_recommend"
-                await save_session(session_id, sess)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "awaiting_analyse"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in analyser.run(
+                sess["url"], sess["audit_context"], sess["audit_data"],
+                api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["analysis"] = full_text
+                    sess["stage"] = "awaiting_recommend"
+                    await save_session(session_id, sess)
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("seo_audit", "analysing")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] seo_audit/analysis session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("seo_audit", "analysing")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -219,23 +248,32 @@ async def stream_recommendations(session_id: str, agency_token: str | None = Coo
 
     async def generate():
         full_text = ""
-        async for kind, value in recommender.run(
-            sess["url"], sess["audit_context"], sess["audit_data"], sess["analysis"],
-            api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["recommendations"] = full_text
-                sess["stage"] = "awaiting_implement"
-                await save_session(session_id, sess)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "awaiting_recommend"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in recommender.run(
+                sess["url"], sess["audit_context"], sess["audit_data"], sess["analysis"],
+                api_key=api_key, competitor_urls=sess.get("competitor_urls", [])
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["recommendations"] = full_text
+                    sess["stage"] = "awaiting_implement"
+                    await save_session(session_id, sess)
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("seo_audit", "recommending")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] seo_audit/recommendations session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("seo_audit", "recommending")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -265,38 +303,47 @@ async def stream_implementation(session_id: str, agency_token: str | None = Cook
     async def generate():
         full_text = ""
         cms = sess["audit_data"].get("cms", "WordPress")
-        async for kind, value in implementer.run(
-            sess["url"],
-            sess["audit_context"],
-            cms,
-            sess["audit_data"],
-            sess["analysis"],
-            sess["recommendations"],
-            api_key=api_key,
-        ):
-            if kind == "chunk":
-                full_text += value
-                yield sse_chunk(value)
-            elif kind == "done":
-                sess["implementation"] = full_text
-                sess["stage"] = "done"
-                await save_session(session_id, sess)
-                await log_activity("seo_audit", f"Completed audit: {sess['url']}", email=email)
-                user = await get_user(sess.get("user_id", ""))
-                u = user or {}
-                asyncio.ensure_future(log_task(
-                    "SEO Audit", "SEO Audit", f"Audit: {sess['url']}",
-                    notion_token=u.get("notion_token", ""),
-                    db_id=u.get("notion_agency_log_db_id", ""),
-                ))
-                if email and full_text:
-                    await log_history_item(email, "SEO Audit", f"Audit: {sess['url']}", full_text)
-                yield sse_done()
-            elif kind == "error":
-                sess["stage"] = "awaiting_implement"
-                await save_session(session_id, sess)
-                yield sse_event({"type": "error", "message": friendly_error(value)})
-                yield sse_done()
+        try:
+            async for kind, value in implementer.run(
+                sess["url"],
+                sess["audit_context"],
+                cms,
+                sess["audit_data"],
+                sess["analysis"],
+                sess["recommendations"],
+                api_key=api_key,
+            ):
+                if kind == "chunk":
+                    full_text += value
+                    yield sse_chunk(value)
+                elif kind == "done":
+                    sess["implementation"] = full_text
+                    sess["stage"] = "done"
+                    await save_session(session_id, sess)
+                    await log_activity("seo_audit", f"Completed audit: {sess['url']}", email=email)
+                    user = await get_user(sess.get("user_id", ""))
+                    u = user or {}
+                    asyncio.ensure_future(log_task(
+                        "SEO Audit", "SEO Audit", f"Audit: {sess['url']}",
+                        notion_token=u.get("notion_token", ""),
+                        db_id=u.get("notion_agency_log_db_id", ""),
+                    ))
+                    if email and full_text:
+                        await log_history_item(email, "SEO Audit", f"Audit: {sess['url']}", full_text)
+                    yield sse_done()
+                    return
+                elif kind == "error":
+                    sess["stage"] = get_rollback_stage("seo_audit", "implementing")
+                    await save_session(session_id, sess)
+                    yield sse_event({"type": "error", "message": friendly_error(value)})
+                    yield sse_done()
+                    return
+        except Exception as exc:
+            print(f"[ERROR] seo_audit/implementation session={session_id}: {exc}", file=sys.stderr)
+            sess["stage"] = get_rollback_stage("seo_audit", "implementing")
+            await save_session(session_id, sess)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            yield sse_done()
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 

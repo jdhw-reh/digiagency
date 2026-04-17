@@ -143,10 +143,10 @@ function startVideoSSE(url, { onChunk, onShots, onSaved, onDone, onError }) {
     }
   };
 
-  es.onerror = (err) => {
+  es.onerror = () => {
     es.close();
     _videoActiveES = null;
-    onError && onError(err);
+    onError && onError("Connection to server lost. Please try again.");
   };
 }
 

@@ -392,6 +392,7 @@ async function startAudit() {
       es.close();
       cursor.remove();
       setAuditStage("awaiting_analyse");
+      startAnalyse();
     } else if (msg.type === "error") {
       es.close();
       cursor.remove();
@@ -450,6 +451,7 @@ async function startAnalyse() {
       cursor.remove();
       setPanelSummary(sau.panelAnalyser, '<span>Analysis complete</span>');
       setAuditStage("awaiting_recommend");
+      startRecommend();
     } else if (msg.type === "error") {
       es.close();
       cursor.remove();

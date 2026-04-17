@@ -20,6 +20,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from state import get_account, list_accounts, redis_client, save_account
+from services.email import send_subscription_activated_email, send_subscription_cancelled_email
 
 _ADMIN_EMAIL = "digi.admin.ai@gmail.com"
 
@@ -125,6 +126,7 @@ async def stripe_webhook(request: Request):
                 account["plan"] = plan
                 await save_account(email, account)
                 await _notify_admin_new_signup(email, plan)
+                asyncio.create_task(send_subscription_activated_email(email, plan))
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
         customer_id = getattr(obj, "customer", None)
@@ -145,6 +147,17 @@ async def stripe_webhook(request: Request):
                     f"Review at: https://digiagency.up.railway.app/admin"
                 )
                 asyncio.create_task(_send_email(subject, body))
+
+                # Format access end date from Stripe's current_period_end (Unix timestamp)
+                _period_end = getattr(obj, "current_period_end", None)
+                access_end: str | None = None
+                if _period_end:
+                    try:
+                        from datetime import datetime, timezone
+                        access_end = datetime.fromtimestamp(_period_end, tz=timezone.utc).strftime("%-d %B %Y")
+                    except Exception:
+                        pass
+                asyncio.create_task(send_subscription_cancelled_email(email, plan, access_end))
 
     # Return 200 for all other event types so Stripe doesn't retry
     return {"ok": True}

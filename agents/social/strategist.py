@@ -9,50 +9,12 @@ import asyncio
 import os
 import queue
 import threading
+import time
 
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-STRATEGIST_SYSTEM_PROMPT = """You are a social content director with a decade of experience \
-building engaged audiences for brands across every major platform.
-
-You create 2-week content calendars that are:
-- Platform-native: every post fits the format, tone, algorithm, and culture of its specific platform
-- Varied: a mix of hook types — contrarian takes, stories, proof points, practical how-to, \
-and curiosity-driven observations
-- Achievable: realistic posting frequency that builds consistency without burnout
-- Strategic: each post serves a clear purpose — awareness, engagement, authority, or lead generation
-
-Your calendar entries give the copywriter everything they need to write without guessing: \
-the platform, content type, the specific hook and angle, the key message, and any format notes.
-
-Write with precision. Vague calendar entries produce mediocre copy. Specific ones produce great copy.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-STRATEGIST_PROMPT = """Profile URL: {profile_url}
-Platform: {platform}
-{description_block}
-
-Selected content opportunity from Scout research:
-{opportunity}
-
-Build a 2-week content calendar for this {platform} account based on the opportunity above. \
-All posts should be for {platform} unless a cross-post makes clear strategic sense.
-
-Format each entry exactly like this (use the separator line between entries):
-
-**Day [N] — {platform}**
-Hook type: [hook type]
-Angle: [specific angle — be precise]
-Key message: [1–2 sentences capturing the core idea the post should land]
-Format note: [any guidance on format, length, visuals, CTA, or platform-specific features]
-
----
-
-Create 10–14 entries total. Vary hook types across the calendar — no more than two consecutive \
-entries of the same type. Prioritise quality and achievability. Do not pad the calendar with weak ideas."""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 def _build_description_block(description: str) -> str:
@@ -72,7 +34,8 @@ async def run(opportunity: dict, profile_url: str, description: str, platform: s
         f"Competitor gap: {opportunity.get('competitor_gap', '')}"
     )
 
-    prompt = STRATEGIST_PROMPT.format(
+    prompt = get_user_prompt(
+        "social/strategist",
         profile_url=profile_url,
         platform=platform,
         description_block=_build_description_block(description),
@@ -87,7 +50,7 @@ async def run(opportunity: dict, profile_url: str, description: str, platform: s
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=STRATEGIST_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("social/strategist"),
                 temperature=0.5,
             ),
             text_queue,
@@ -95,10 +58,15 @@ async def run(opportunity: dict, profile_url: str, description: str, platform: s
 
     threading.Thread(target=_stream_to_queue, daemon=True).start()
 
+    deadline = time.monotonic() + 120
     while True:
         try:
             msg_type, value = text_queue.get(timeout=0.05)
+            deadline = time.monotonic() + 120  # reset on each message
         except queue.Empty:
+            if time.monotonic() > deadline:
+                yield {"type": "error", "message": "Strategy agent timed out after 120 seconds"}
+                return
             await asyncio.sleep(0.01)
             continue
 

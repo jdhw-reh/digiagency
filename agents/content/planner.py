@@ -10,54 +10,20 @@ import asyncio
 import os
 import queue
 import threading
+import time
 
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-PLANNER_SYSTEM_PROMPT = """You are a content strategist and editorial director with 15 years of \
-experience in B2B and professional services copywriting.
-
-You create content briefs that are detailed enough for a senior writer to produce a \
-publication-ready first draft with no clarifying questions. Your briefs are:
-- Structured with clear H2/H3 hierarchy
-- Grounded in the specific search intent (not generic "target this keyword" advice)
-- Opinionated about tone — professional services audiences respond to confident, \
-evidence-backed writing, not hedging
-- Explicit about what NOT to include (scope creep kills articles)
-- Precise about CTA placement and purpose
-
-Write briefs in Markdown. Be direct. Do not pad. A great brief is 400–600 words, not 1,500.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-PLANNER_PROMPT = """Business context: {context}
-
-Topic to plan:
-Title: {title}
-Primary keyword: {primary_keyword}
-Secondary keywords: {secondary_keywords}
-Search intent: {search_intent}
-Competition: {competition}
-Why target this: {why_target}
-
-Create a detailed content brief for this article. Include:
-1. Target audience description (who they are, what they already know, what they need)
-2. Tone and voice notes (specific, not generic)
-3. H2/H3 article structure with key points for each section
-4. Keyword placement guidance (where each keyword fits naturally)
-5. CTA placement: where, what type, exact suggested copy
-6. Word count target (800–1,200 words)
-7. Do Not Include section (common mistakes or tangents that would weaken this article)
-
-Format as clean Markdown."""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 async def run(topic: dict, business_context: str, api_key: str = ""):
     """Async generator yielding str text chunks."""
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
-    prompt = PLANNER_PROMPT.format(
+    prompt = get_user_prompt(
+        "content/planner",
         context=business_context,
         title=topic.get("title", ""),
         primary_keyword=topic.get("primary_keyword", ""),
@@ -75,7 +41,7 @@ async def run(topic: dict, business_context: str, api_key: str = ""):
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=PLANNER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("content/planner"),
                 temperature=0.3,
             ),
             text_queue,
@@ -83,10 +49,15 @@ async def run(topic: dict, business_context: str, api_key: str = ""):
 
     threading.Thread(target=_stream_to_queue, daemon=True).start()
 
+    deadline = time.monotonic() + 120
     while True:
         try:
             msg_type, value = text_queue.get(timeout=0.05)
+            deadline = time.monotonic() + 120  # reset on each message
         except queue.Empty:
+            if time.monotonic() > deadline:
+                yield {"type": "error", "message": "Planning agent timed out after 120 seconds"}
+                return
             await asyncio.sleep(0.01)
             continue
 

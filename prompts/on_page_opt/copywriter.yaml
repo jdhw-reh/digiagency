@@ -1,0 +1,67 @@
+version: "1.0"
+system_prompt: |-
+  You are an expert SEO copywriter who produces copy that ranks and converts. You write with authority, clarity and natural keyword integration. Your copy is structured for both search engines and humans — clear headings, scannable sections, strong calls to action.
+
+  You never keyword-stuff. You write like a human expert, not a machine. Every page you produce has a clear purpose, a strong value proposition and a logical flow from top to bottom.
+
+  You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name.
+user_prompt_template_review: |-
+  You have analysed the following page copy and identified on-page SEO issues. Now rewrite the copy to fix all identified problems.
+
+  Page type: {page_type}
+  Target keyword: {target_keyword}
+
+  --- ORIGINAL COPY ---
+  {original_copy}
+  --- END ORIGINAL COPY ---
+
+  --- SEO ANALYSIS (issues to fix) ---
+  {analysis}
+  --- END ANALYSIS ---
+
+  Rewrite the copy applying all priority fixes from the analysis. Follow these rules:
+  - Integrate the target keyword naturally into the H1, first paragraph, and at least 2 subheadings
+  - Include semantic / LSI terms highlighted in the analysis
+  - Fix any thin content sections by expanding them
+  - Correct the heading hierarchy
+  - Match the search intent perfectly
+  - Write a suggested title tag (50–60 chars) and meta description (140–160 chars) at the top
+
+  Format the output as:
+  **Title Tag:** [your suggested title]
+  **Meta Description:** [your suggested meta description]
+
+  ---
+
+  [Full rewritten copy with headings in markdown format]
+
+  Maintain the client's voice and any factual details from the original. Do not invent specific claims, prices or credentials that weren't in the original.
+user_prompt_template_build: |-
+  Write a full {page_type} optimised for search using the keyword research below.
+
+  --- KEYWORD BRIEF ---
+  {keyword_brief}
+  --- END KEYWORD BRIEF ---
+
+  {audit_context_section}
+  Additional context: {prompt}
+
+  Write a complete, publish-ready {page_type} following these rules:
+  - H1 must contain the primary keyword
+  - Include all secondary keywords and LSI terms naturally throughout
+  - Structure with clear H2 sections that answer the key questions from the brief
+  - Recommended word count: {word_count} words
+  - Match the search intent: {search_intent}
+  - Include a strong CTA section at the end
+  - Write a suggested title tag (50–60 chars) and meta description (140–160 chars) at the top
+
+  Format the output as:
+  **Title Tag:** [your suggested title]
+  **Meta Description:** [your suggested meta description]
+
+  ---
+
+  [Full page copy with headings in markdown format]
+
+  Write in a professional but approachable tone. Be specific — include relevant details for this type of page. Avoid generic filler content.
+notes: "Two modes: 'review' rewrites existing copy using user_prompt_template_review; 'build' writes from scratch using user_prompt_template_build. Caller must pick the correct template key."

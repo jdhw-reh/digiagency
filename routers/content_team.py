@@ -6,11 +6,15 @@ import os
 import uuid
 
 from docx import Document
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Depends
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
+import sys
+
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item, get_rollback_stage, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.content import researcher, planner, writer
 from services.notion import create_article_page
@@ -79,7 +83,10 @@ class SessionPayload(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session")
-async def create_session(payload: CreateSessionPayload):
+async def create_session(
+    payload: CreateSessionPayload,
+    _: None = Depends(ToolAccess("content")),
+):
     sid = str(uuid.uuid4())
     defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
     await get_session(sid, "content", defaults)
@@ -94,7 +101,7 @@ async def get_state(session_id: str):
 @router.post("/context")
 async def save_context(payload: ContextPayload):
     session = await get_session(payload.session_id, "content", _SESSION_DEFAULTS)
-    session["business_context"] = payload.context
+    session["business_context"] = sanitise_user_input(payload.context, user_id=session.get("user_id"))
     await save_session(payload.session_id, session)
     return {"ok": True}
 
@@ -138,19 +145,28 @@ async def stream_research(session_id: str, agency_token: str | None = Cookie(def
         return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
-        async for chunk in researcher.run(session["business_context"], api_key=api_key):
-            if isinstance(chunk, str):
-                yield sse_chunk(chunk)
-            elif isinstance(chunk, dict):
-                if chunk.get("type") == "error":
-                    session["stage"] = "idle"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-                elif chunk.get("type") == "topics":
-                    session["topics"] = chunk.get("data", [])
-                    session["stage"] = "awaiting_topic"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "topics", "data": session["topics"]})
+        failed = False
+        try:
+            async for chunk in researcher.run(session["business_context"], api_key=api_key):
+                if isinstance(chunk, str):
+                    yield sse_chunk(chunk)
+                elif isinstance(chunk, dict):
+                    if chunk.get("type") == "error":
+                        session["stage"] = get_rollback_stage("content", "researching")
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                        failed = True
+                        break
+                    elif chunk.get("type") == "topics":
+                        session["topics"] = chunk.get("data", [])
+                        session["stage"] = "awaiting_topic"
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "topics", "data": session["topics"]})
+        except Exception as exc:
+            print(f"[ERROR] content/research session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("content", "researching")
+            await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -171,18 +187,27 @@ async def stream_plan(session_id: str, agency_token: str | None = Cookie(default
         return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
-        async for chunk in planner.run(session["selected_topic"], session["business_context"], api_key=api_key):
-            if isinstance(chunk, dict) and chunk.get("type") == "error":
-                session["stage"] = "awaiting_topic"
+        failed = False
+        try:
+            async for chunk in planner.run(session["selected_topic"], session["business_context"], api_key=api_key):
+                if isinstance(chunk, dict) and chunk.get("type") == "error":
+                    session["stage"] = get_rollback_stage("content", "planning")
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                    failed = True
+                    break
+                else:
+                    brief_parts.append(chunk)
+                    yield sse_chunk(chunk)
+            if not failed and brief_parts:
+                session["brief"] = "".join(brief_parts)
+                session["stage"] = "awaiting_write"
                 await save_session(session_id, session)
-                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-            else:
-                brief_parts.append(chunk)
-                yield sse_chunk(chunk)
-        if brief_parts:
-            session["brief"] = "".join(brief_parts)
-            session["stage"] = "awaiting_write"
+        except Exception as exc:
+            print(f"[ERROR] content/plan session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("content", "planning")
             await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -204,23 +229,34 @@ async def stream_write(session_id: str, agency_token: str | None = Cookie(defaul
     email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
-        async for chunk in writer.run(
-            session["brief"], session["selected_topic"], session["business_context"], api_key=api_key
-        ):
-            if isinstance(chunk, dict) and chunk.get("type") == "error":
-                session["stage"] = "awaiting_write"
+        failed = False
+        try:
+            async for chunk in writer.run(
+                session["brief"], session["selected_topic"], session["business_context"], api_key=api_key
+            ):
+                if isinstance(chunk, dict) and chunk.get("type") == "error":
+                    session["stage"] = get_rollback_stage("content", "writing")
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                    failed = True
+                    break
+                else:
+                    article_parts.append(chunk)
+                    yield sse_chunk(chunk)
+            if not failed and article_parts:
+                session["article"] = "".join(article_parts)
+                session["stage"] = "done"
                 await save_session(session_id, session)
-                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-            else:
-                article_parts.append(chunk)
-                yield sse_chunk(chunk)
-        if article_parts:
-            session["article"] = "".join(article_parts)
-            session["stage"] = "done"
+                if email and session["article"]:
+                    title = (session.get("selected_topic") or {}).get("title", "Article")
+                    await log_history_item(email, "Content Team", title, session["article"])
+                if email:
+                    await increment_usage(redis_client, email, "content")
+        except Exception as exc:
+            print(f"[ERROR] content/write session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("content", "writing")
             await save_session(session_id, session)
-            if email and session["article"]:
-                title = (session.get("selected_topic") or {}).get("title", "Article")
-                await log_history_item(email, "Content Team", title, session["article"])
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

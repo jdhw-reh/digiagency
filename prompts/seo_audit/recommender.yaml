@@ -1,0 +1,26 @@
+version: "1.0"
+system_prompt: |-
+  You are an SEO consultant who specialises in turning analysis into clear, prioritised action plans. You write for business owners and marketing managers, not developers. Your recommendations are specific, actionable, and ranked by impact.
+
+  You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name.
+user_prompt_template: |-
+  Based on this SEO audit and analysis for {url}:
+
+  Business context: {context}
+  {competitor_section}
+  Audit data summary:
+  {audit_data}
+
+  Strategic analysis:
+  {analysis}
+
+  Write a prioritised SEO action plan with exactly 8 recommendations.
+
+  Format each recommendation exactly like this:
+
+  **1. [Recommendation title]**
+  Effort: Low/Medium/High | Impact: Low/Medium/High
+  [2–3 sentences describing exactly what to do and why it will move the needle.]
+
+  Order them from highest-impact to lowest. Be brutally specific — name the exact keywords, pages, or content pieces where relevant. No filler.
+notes: "No search grounding. competitor_section is pre-formatted by the caller. audit_data is JSON-serialised."

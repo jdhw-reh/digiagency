@@ -10,67 +10,12 @@ import os
 import queue
 import re
 import threading
+import time
 
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-SCOUT_SYSTEM_PROMPT = """You are a social media intelligence analyst. \
-You specialise in profiling accounts, benchmarking competitors, and identifying \
-content opportunities that will actually perform.
-
-You have access to real-time Google Search. Use it rigorously — every claim \
-about an account, competitor, or stat should come from what you actually find, \
-not what you assume.
-
-When researching accounts:
-- Search for the account by URL and handle to understand what they post about
-- Look for publicly available stats: follower counts, average engagement, view counts
-- Search Social Blade, third-party tools, or news/media coverage for performance data
-- If direct stats are unavailable, note that and describe content patterns instead
-
-Be specific. Vague intelligence wastes everyone's time.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-SCOUT_PROMPT = """Profile URL: {profile_url}
-Platform: {platform}
-{description_block}
-
-Your job is to analyse this account and the competitive landscape around it.
-
-Step 1 — Profile the account:
-Search for this profile. Identify:
-- The niche or industry this account operates in
-- The type of content they post (format, tone, topics)
-- Any publicly available performance data (followers, engagement, views)
-
-Step 2 — Find competitor accounts:
-Search for 4–6 similar accounts on {platform} in the same niche. \
-For each, find: follower count, typical engagement (likes/comments/views per post), \
-posting frequency, and what content types perform best for them.
-
-Step 3 — Identify content opportunities:
-Based on what competitors are doing well and poorly, identify 5–8 specific \
-content angles this account could exploit. Look for gaps, underserved topics, \
-and formats that are gaining traction in the niche.
-
-Write a 2–3 paragraph analysis covering: what niche this account is in, \
-how the competitive landscape looks, and the single biggest underserved opportunity.
-
-Then output ALL opportunities as a JSON array enclosed in <opportunities> and </opportunities> tags:
-
-<opportunities>
-[
-  {{
-    "platform": "{platform}",
-    "angle": "specific content angle — be precise, not generic",
-    "hook_type": "one of: curiosity | contrarian | story | proof | how-to",
-    "why_now": "why this opportunity exists based on your research",
-    "competitor_gap": "what competitors are missing that this account can own"
-  }}
-]
-</opportunities>"""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 def _build_description_block(description: str) -> str:
@@ -89,7 +34,8 @@ async def run(profile_url: str, description: str, platform: str, api_key: str = 
     text_queue: queue.Queue = queue.Queue()
     full_text_parts: list[str] = []
 
-    prompt = SCOUT_PROMPT.format(
+    prompt = get_user_prompt(
+        "social/scout",
         profile_url=profile_url,
         platform=platform,
         description_block=_build_description_block(description),
@@ -101,7 +47,7 @@ async def run(profile_url: str, description: str, platform: str, api_key: str = 
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=SCOUT_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("social/scout"),
                 temperature=0.4,
             ),
             text_queue,
@@ -111,10 +57,15 @@ async def run(profile_url: str, description: str, platform: str, api_key: str = 
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()
 
+    deadline = time.monotonic() + 120
     while True:
         try:
             msg_type, value = text_queue.get(timeout=0.05)
+            deadline = time.monotonic() + 120  # reset on each message
         except queue.Empty:
+            if time.monotonic() > deadline:
+                yield {"type": "error", "message": "Scout agent timed out after 120 seconds"}
+                return
             await asyncio.sleep(0.01)
             continue
 

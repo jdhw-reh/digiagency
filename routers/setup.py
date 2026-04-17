@@ -137,7 +137,10 @@ async def provision_notion(payload: ProvisionPayload):
     parent_page_id = user.get("notion_parent_page_id", "")
 
     if not token:
-        return JSONResponse({"error": "No Notion token configured"}, status_code=400)
+        return JSONResponse(
+            {"error": "No Notion token found — please reconnect your Notion integration in Settings"},
+            status_code=400,
+        )
     if not parent_page_id:
         return JSONResponse({"error": "No Notion parent page configured"}, status_code=400)
 

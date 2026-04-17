@@ -4,11 +4,15 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
+import sys
+
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item, get_rollback_stage, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.video import director
 from services.notion_video import save_brief
@@ -73,7 +77,10 @@ class SessionPayload(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session")
-async def create_session(payload: CreateSessionPayload):
+async def create_session(
+    payload: CreateSessionPayload,
+    _: None = Depends(ToolAccess("video")),
+):
     sid = str(uuid.uuid4())
     defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
     await get_session(sid, "video", defaults)
@@ -88,9 +95,9 @@ async def get_state(session_id: str):
 @router.post("/brief")
 async def save_brief_context(payload: BriefPayload):
     session = await get_session(payload.session_id, "video", _SESSION_DEFAULTS)
-    session["brief"] = payload.brief
-    session["platform"] = payload.platform
-    session["duration"] = payload.duration
+    session["brief"] = sanitise_user_input(payload.brief, user_id=session.get("user_id"))
+    session["platform"] = sanitise_user_input(payload.platform, user_id=session.get("user_id"))
+    session["duration"] = sanitise_user_input(payload.duration, user_id=session.get("user_id"))
     await save_session(payload.session_id, session)
     return {"ok": True}
 
@@ -122,6 +129,7 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
     text_parts: list[str] = []
 
     async def event_generator():
+        failed = False
         try:
             async for chunk in director.run(
                 session["brief"],
@@ -134,9 +142,11 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
                     yield sse_chunk(chunk)
                 elif isinstance(chunk, dict):
                     if chunk.get("type") == "error":
-                        session["stage"] = "idle"
+                        session["stage"] = get_rollback_stage("video", "directing")
                         await save_session(session_id, session)
                         yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                        failed = True
+                        break
                     elif chunk.get("type") == "shots":
                         data = chunk.get("data", {})
                         session["concept"] = data.get("concept", {})
@@ -161,13 +171,17 @@ async def stream_direct(session_id: str, agency_token: str | None = Cookie(defau
                                 yield sse_event({"type": "saved", "url": url})
                             except Exception:
                                 pass  # Notion save failure shouldn't break the stream
+        except Exception as exc:
+            print(f"[ERROR] video/direct session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("video", "directing")
+            await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
+            failed = True
         finally:
-            if session["stage"] == "directing":
-                session["stage"] = "idle"
-                await save_session(session_id, session)
-            if email and session.get("stage") == "done" and text_parts:
+            if not failed and email and session.get("stage") == "done" and text_parts:
                 title = session["concept"].get("title") or "Video brief"
                 await log_history_item(email, "Video Director", title, "".join(text_parts))
+                await increment_usage(redis_client, email, "video")
             yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

@@ -17,109 +17,12 @@ import os
 import queue
 import re
 import threading
+import time
 
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-DIRECTOR_SYSTEM_PROMPT = """\
-You are a video director and Runway Gen-4 prompt engineer. \
-You receive a content brief — either a social media post script or a free-text idea — \
-and you direct a complete short-form video: concept, visual language, and a \
-shot-by-shot breakdown with camera-ready Runway Gen-4 prompts.
-
-──────────────────────────────────────────
-RUNWAY GEN-4 PROMPTING RULES
-──────────────────────────────────────────
-
-Follow these rules for every single shot prompt:
-
-1. Begin with the clip's opening moment:
-   "Opens on...", "Camera holds on...", "Slow push into...", "Cut to..."
-
-2. One primary action per shot only.
-   Multi-action prompts degrade output quality. Choose the single most important
-   thing happening in that clip.
-
-3. Use cinematographic shorthand for framing:
-   ECU (extreme close-up), CU (close-up), MCU (medium close-up),
-   MS (mid shot), WS (wide shot), OTS (over-the-shoulder), POV.
-
-4. Specify camera movement explicitly:
-   static, slow push in, slow pull back, dolly left, dolly right,
-   tracking shot, handheld, crane rise, crane fall, rack focus, whip pan.
-
-5. Anchor subjects with concrete visual attributes every time they appear:
-   clothing colour, approximate age, hair, posture, build.
-   Runway maintains subject consistency across shots when you repeat these anchors.
-
-6. Use practical lighting references — not vague mood words:
-   "warm practical desk lamp at 45 degrees left",
-   "golden hour backlight from screen right, subject rim-lit",
-   "overcast diffused daylight through large window",
-   "blue-tinted phone glow in dark room".
-
-7. Never use vague quality words: do NOT write "beautiful", "stunning",
-   "dramatic", "cinematic", "amazing", "epic". Describe what the camera sees.
-
-8. State depth of field intent:
-   "shallow depth of field, background soft" or
-   "deep focus, foreground and background both sharp".
-
-9. End each prompt with a 2-word mood — not an instruction, just the feeling:
-   "warm and intimate", "cool and sparse", "urgent and kinetic".
-
-──────────────────────────────────────────
-SHOT COUNT BY PLATFORM AND DURATION
-──────────────────────────────────────────
-
-TikTok 15s → 4–5 shots
-TikTok 30s → 6–8 shots
-TikTok 60s+ → 9–12 shots
-Instagram Reel 15s → 4–5 shots
-Instagram Reel 30–60s → 6–10 shots
-YouTube Short (60s) → 8–12 shots
-YouTube long-form 1–3 min → 12–20 shots
-Generic / unspecified → 6–8 shots
-
-──────────────────────────────────────────
-OUTPUT FORMAT — follow exactly
-──────────────────────────────────────────
-
-First, output the concept overview in this exact tag:
-
-<concept>
-Title: [short video title — 3–6 words]
-Platform: [TikTok | Instagram | YouTube | Other]
-Duration: [N]s
-Visual Style: [2–3 words, e.g. "clean minimal tech" or "warm documentary handheld"]
-Audio Mood: [2–3 words, e.g. "upbeat electronic pulse" or "sparse acoustic ambient"]
-Hook Strategy: [one sentence — what grabs attention in the first 2 seconds]
-</concept>
-
-Then write every shot in this exact format:
-
-<shot id="N" duration="Xs">
-<runway_prompt>[Your full Runway Gen-4 prompt here]</runway_prompt>
-<camera>[Framing + movement description]</camera>
-<on_screen_text>None | [exact text to overlay on screen]</on_screen_text>
-<broll_note>None | [brief note for editor, e.g. stock source or timing cue]</broll_note>
-</shot>
-
-After all shots, write a single short paragraph as a director's note \
-covering the overall visual rhythm, pacing, and any editorial decisions the editor \
-should know.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-DIRECTOR_PROMPT = """\
-Platform: {platform}
-Target duration: {duration}s
-
-Brief:
-{brief}
-
-Direct this video. Write the concept overview, then every shot in sequence."""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 def _parse_concept(full_text: str) -> dict:
@@ -176,7 +79,8 @@ async def run(brief: str, platform: str, duration: str, api_key: str = ""):
     """
     client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY", ""))
 
-    prompt = DIRECTOR_PROMPT.format(
+    prompt = get_user_prompt(
+        "video/director",
         platform=platform or "TikTok",
         duration=duration or "30",
         brief=brief,
@@ -191,7 +95,7 @@ async def run(brief: str, platform: str, duration: str, api_key: str = ""):
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=DIRECTOR_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("video/director"),
                 temperature=0.7,
             ),
             text_queue,
@@ -201,10 +105,15 @@ async def run(brief: str, platform: str, duration: str, api_key: str = ""):
     thread = threading.Thread(target=_stream_to_queue, daemon=True)
     thread.start()
 
+    deadline = time.monotonic() + 120
     while True:
         try:
             msg_type, value = text_queue.get(timeout=0.05)
+            deadline = time.monotonic() + 120  # reset on each message
         except queue.Empty:
+            if time.monotonic() > deadline:
+                yield {"type": "error", "message": "Video director agent timed out after 120 seconds"}
+                return
             await asyncio.sleep(0.01)
             continue
 

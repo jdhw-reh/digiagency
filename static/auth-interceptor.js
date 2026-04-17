@@ -1,15 +1,41 @@
 "use strict";
 
 // ---------------------------------------------------------------------------
-// Auth interceptor — redirect to /login if any API call returns 401 or 402
-// Also injects a Sign Out button into the sidebar.
+// Auth interceptor — redirect to /login if any API call returns 401 or 402.
+// Also injects an X-CSRF-Token header on all mutating requests (POST/PUT/
+// DELETE/PATCH) to defend against Cross-Site Request Forgery attacks.
 // ---------------------------------------------------------------------------
 
 (function () {
   const _origFetch = window.fetch.bind(window);
 
-  window.fetch = async function (...args) {
-    const response = await _origFetch(...args);
+  /** Read a cookie value by name from document.cookie. */
+  function getCookie(name) {
+    const escaped = name.replace(/[$()*+.?[\\\]^{|}]/g, "\\$&");
+    const match = document.cookie.match(
+      new RegExp("(?:^|; )" + escaped + "=([^;]*)")
+    );
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  const _CSRF_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
+
+  window.fetch = async function (input, init) {
+    // Inject CSRF token on mutating requests.
+    // The csrf_token cookie is readable by JS (httponly=False) specifically for
+    // this purpose; its value must match the header sent to the server.
+    const method = (init?.method || "GET").toUpperCase();
+    if (_CSRF_METHODS.has(method)) {
+      const csrfToken = getCookie("csrf_token");
+      if (csrfToken) {
+        init = { ...(init || {}) };
+        const headers = new Headers(init.headers || {});
+        headers.set("X-CSRF-Token", csrfToken);
+        init.headers = headers;
+      }
+    }
+
+    const response = await _origFetch(input, init);
 
     if (response.status === 401 || response.status === 402) {
       // Clone so the original caller can still read the body if needed

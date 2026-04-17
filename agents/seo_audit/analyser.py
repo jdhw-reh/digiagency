@@ -11,38 +11,7 @@ import threading
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-ANALYSER_SYSTEM_PROMPT = """You are a senior SEO strategist who turns raw audit data \
-into clear strategic analysis. You are direct, specific, and always tie observations \
-to business impact. You do not repeat the raw data — you interpret it.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-ANALYSER_PROMPT = """Here is the raw SEO audit for {url}:
-
-Business context: {context}
-{competitor_section}
-Audit findings:
-{audit_data}
-
-Produce a structured SEO analysis with these sections:
-
-## Strengths
-What is this site already doing well from an SEO perspective? (2–3 bullet points)
-
-## Critical Gaps
-What are the most damaging gaps — keywords, content, authority — that are costing them \
-rankings right now? (3–4 bullet points, be specific)
-
-## Competitive Position
-How do they compare to the competitors identified? Where are they losing ground and where \
-do they have an edge?
-
-## Highest-Leverage Opportunities
-The 3 opportunities with the best ratio of effort to SEO impact. Be concrete — name the \
-keyword clusters, content types, or structural changes.
-
-Keep the analysis tight — 400–600 words total."""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 async def run(url: str, context: str, audit_data: dict, api_key: str = "", competitor_urls: list | None = None):
@@ -57,8 +26,12 @@ async def run(url: str, context: str, audit_data: dict, api_key: str = "", compe
         f"\nCompetitor domains to benchmark against: {', '.join(competitors)}\n"
         if competitors else ""
     )
-    prompt = ANALYSER_PROMPT.format(
-        url=url, context=context, audit_data=audit_str, competitor_section=competitor_section
+    prompt = get_user_prompt(
+        "seo_audit/analyser",
+        url=url,
+        context=context,
+        audit_data=audit_str,
+        competitor_section=competitor_section,
     )
 
     result_queue: queue.Queue = queue.Queue()
@@ -69,7 +42,7 @@ async def run(url: str, context: str, audit_data: dict, api_key: str = "", compe
             "gemini-2.5-flash",
             prompt,
             types.GenerateContentConfig(
-                system_instruction=ANALYSER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("seo_audit/analyser"),
                 temperature=0.4,
             ),
             result_queue,
@@ -82,7 +55,7 @@ async def run(url: str, context: str, audit_data: dict, api_key: str = "", compe
     while True:
         try:
             kind, value = await loop.run_in_executor(
-                None, lambda: result_queue.get(timeout=60)
+                None, lambda: result_queue.get(timeout=120)
             )
         except queue.Empty:
             yield ("error", "Analyser timed out")

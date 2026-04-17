@@ -4,11 +4,15 @@ import asyncio
 import os
 import uuid
 
-from fastapi import APIRouter, Cookie
+from fastapi import APIRouter, Cookie, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item
+import sys
+
+from state import get_session, save_session, get_user, get_user_by_email, log_activity, get_token_email, log_history_item, get_rollback_stage, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input, validate_url
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.social import scout, strategist, copywriter
 from services.notion_social import save_posts
@@ -80,7 +84,10 @@ class SessionPayload(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session")
-async def create_session(payload: CreateSessionPayload):
+async def create_session(
+    payload: CreateSessionPayload,
+    _: None = Depends(ToolAccess("social")),
+):
     sid = str(uuid.uuid4())
     defaults = {**_SESSION_DEFAULTS, "user_id": payload.user_id}
     await get_session(sid, "social", defaults)
@@ -95,9 +102,9 @@ async def get_state(session_id: str):
 @router.post("/context")
 async def save_context(payload: ContextPayload):
     session = await get_session(payload.session_id, "social", _SESSION_DEFAULTS)
-    session["profile_url"] = payload.profile_url
-    session["description"] = payload.description
-    session["detected_platform"] = payload.detected_platform
+    session["profile_url"] = validate_url(payload.profile_url)
+    session["description"] = sanitise_user_input(payload.description, user_id=session.get("user_id"))
+    session["detected_platform"] = sanitise_user_input(payload.detected_platform, user_id=session.get("user_id"))
     await save_session(payload.session_id, session)
     return {"ok": True}
 
@@ -141,24 +148,33 @@ async def stream_scout(session_id: str, agency_token: str | None = Cookie(defaul
         return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
-        async for chunk in scout.run(
-            session["profile_url"],
-            session["description"],
-            session["detected_platform"],
-            api_key=api_key,
-        ):
-            if isinstance(chunk, str):
-                yield sse_chunk(chunk)
-            elif isinstance(chunk, dict):
-                if chunk.get("type") == "error":
-                    session["stage"] = "idle"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-                elif chunk.get("type") == "opportunities":
-                    session["opportunities"] = chunk.get("data", [])
-                    session["stage"] = "awaiting_idea"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "opportunities", "data": session["opportunities"]})
+        failed = False
+        try:
+            async for chunk in scout.run(
+                session["profile_url"],
+                session["description"],
+                session["detected_platform"],
+                api_key=api_key,
+            ):
+                if isinstance(chunk, str):
+                    yield sse_chunk(chunk)
+                elif isinstance(chunk, dict):
+                    if chunk.get("type") == "error":
+                        session["stage"] = get_rollback_stage("social", "scouting")
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                        failed = True
+                        break
+                    elif chunk.get("type") == "opportunities":
+                        session["opportunities"] = chunk.get("data", [])
+                        session["stage"] = "awaiting_idea"
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "opportunities", "data": session["opportunities"]})
+        except Exception as exc:
+            print(f"[ERROR] social/scout session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("social", "scouting")
+            await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -179,24 +195,33 @@ async def stream_strategise(session_id: str, agency_token: str | None = Cookie(d
         return StreamingResponse(no_key(), media_type="text/event-stream", headers=SSE_HEADERS)
 
     async def event_generator():
-        async for chunk in strategist.run(
-            session["selected_opportunity"],
-            session["profile_url"],
-            session["description"],
-            session["detected_platform"],
-            api_key=api_key,
-        ):
-            if isinstance(chunk, dict) and chunk.get("type") == "error":
-                session["stage"] = "awaiting_idea"
+        failed = False
+        try:
+            async for chunk in strategist.run(
+                session["selected_opportunity"],
+                session["profile_url"],
+                session["description"],
+                session["detected_platform"],
+                api_key=api_key,
+            ):
+                if isinstance(chunk, dict) and chunk.get("type") == "error":
+                    session["stage"] = get_rollback_stage("social", "strategising")
+                    await save_session(session_id, session)
+                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                    failed = True
+                    break
+                else:
+                    calendar_parts.append(chunk)
+                    yield sse_chunk(chunk)
+            if not failed and calendar_parts:
+                session["calendar"] = "".join(calendar_parts)
+                session["stage"] = "awaiting_copy"
                 await save_session(session_id, session)
-                yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-            else:
-                calendar_parts.append(chunk)
-                yield sse_chunk(chunk)
-        if calendar_parts:
-            session["calendar"] = "".join(calendar_parts)
-            session["stage"] = "awaiting_copy"
+        except Exception as exc:
+            print(f"[ERROR] social/strategise session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("social", "strategising")
             await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
@@ -218,30 +243,42 @@ async def stream_write_posts(session_id: str, agency_token: str | None = Cookie(
     email = await get_token_email(agency_token) if agency_token else None
 
     async def event_generator():
-        async for chunk in copywriter.run(
-            session["calendar"],
-            session["profile_url"],
-            session["description"],
-            session["detected_platform"],
-            api_key=api_key,
-        ):
-            if isinstance(chunk, str):
-                post_text_parts.append(chunk)
-                yield sse_chunk(chunk)
-            elif isinstance(chunk, dict):
-                if chunk.get("type") == "error":
-                    session["stage"] = "awaiting_copy"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
-                elif chunk.get("type") == "posts":
-                    session["posts"] = chunk.get("data", [])
-                    session["stage"] = "done"
-                    await save_session(session_id, session)
-                    yield sse_event({"type": "posts", "data": session["posts"]})
-        if email and post_text_parts:
-            opp = session.get("selected_opportunity") or {}
-            title = opp.get("angle") or f"Social posts — {session.get('detected_platform', '')}"
-            await log_history_item(email, "Social Team", title, "".join(post_text_parts))
+        failed = False
+        try:
+            async for chunk in copywriter.run(
+                session["calendar"],
+                session["profile_url"],
+                session["description"],
+                session["detected_platform"],
+                api_key=api_key,
+            ):
+                if isinstance(chunk, str):
+                    post_text_parts.append(chunk)
+                    yield sse_chunk(chunk)
+                elif isinstance(chunk, dict):
+                    if chunk.get("type") == "error":
+                        session["stage"] = get_rollback_stage("social", "writing_posts")
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "error", "message": friendly_error(chunk["message"])})
+                        failed = True
+                        break
+                    elif chunk.get("type") == "posts":
+                        session["posts"] = chunk.get("data", [])
+                        session["stage"] = "done"
+                        await save_session(session_id, session)
+                        yield sse_event({"type": "posts", "data": session["posts"]})
+            if not failed and post_text_parts:
+                if email:
+                    opp = session.get("selected_opportunity") or {}
+                    title = opp.get("angle") or f"Social posts — {session.get('detected_platform', '')}"
+                    await log_history_item(email, "Social Team", title, "".join(post_text_parts))
+                if email:
+                    await increment_usage(redis_client, email, "social")
+        except Exception as exc:
+            print(f"[ERROR] social/write-posts session={session_id}: {exc}", file=sys.stderr)
+            session["stage"] = get_rollback_stage("social", "writing_posts")
+            await save_session(session_id, session)
+            yield sse_event({"type": "error", "message": "Agent failed. Please try again."})
         yield sse_done()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

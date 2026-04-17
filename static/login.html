@@ -211,6 +211,37 @@
       text-underline-offset: 2px;
     }
     .support-hint button:hover { color: #4f46e5; }
+
+    .forgot-link {
+      display: block;
+      text-align: right;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #6366f1;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .forgot-link:hover { color: #4f46e5; }
+
+    #form-forgot { display: none; }
+    #form-reset  { display: none; }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #898780;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+    }
+    .back-link:hover { color: #1C1B18; }
   </style>
 </head>
 <body>
@@ -239,7 +270,19 @@
         <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
       </div>
       <button class="submit-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+      <button class="forgot-link" onclick="switchTab('forgot')">Forgot password?</button>
       <div class="error-msg" id="login-error"></div>
+    </div>
+
+    <!-- Forgot password form -->
+    <div id="form-forgot">
+      <button class="back-link" onclick="switchTab('login')">← Back to sign in</button>
+      <div class="form-group">
+        <label for="forgot-email">Email address</label>
+        <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <button class="submit-btn" id="forgot-btn" onclick="doForgotPassword()">Send reset link</button>
+      <div class="error-msg" id="forgot-error"></div>
     </div>
 
     <!-- Register form -->
@@ -271,7 +314,20 @@
       <button class="submit-btn" id="reg-btn" onclick="doRegister()">Create account</button>
       <div class="error-msg" id="reg-error"></div>
     </div>
-  </div>
+
+    <!-- Reset password form (shown when ?token= is in the URL) -->
+    <div id="form-reset">
+      <h2 style="font-size:17px;font-weight:600;color:#1C1B18;margin:0 0 20px;">Choose a new password</h2>
+      <input type="hidden" id="reset-token">
+      <div class="form-group">
+        <label for="reset-password">New password</label>
+        <input type="password" id="reset-password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+      <button class="submit-btn" id="reset-btn" onclick="doResetPassword()">Update password</button>
+      <div class="error-msg" id="reset-error"></div>
+    </div>
+
+  </div><!-- .card -->
 
   <p class="support-hint">Having trouble? <button onclick="openSupportModal()">Contact support</button></p>
 </div>

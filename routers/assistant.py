@@ -4,12 +4,13 @@ import os
 import tempfile
 import uuid
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, Cookie, Depends, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from fastapi import Cookie
-from state import get_session, save_session, get_user, get_activity_log, get_token_email, log_history_item
+from state import get_session, save_session, get_user, get_activity_log, get_token_email, log_history_item, redis_client
+from utils.usage import ToolAccess, increment_usage
+from utils.sanitise import sanitise_user_input
 from utils.sse import SSE_HEADERS, sse_chunk, sse_done, sse_event, friendly_error
 from agents.assistant import assistant
 
@@ -153,7 +154,10 @@ async def upload_file(session_id: str = "", file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 
 @router.post("/message")
-async def post_message(payload: MessagePayload):
+async def post_message(
+    payload: MessagePayload,
+    _: None = Depends(ToolAccess("assistant")),
+):
     """
     Store the user's message (and any file refs) in the session.
     The frontend then opens a GET /stream/response EventSource to receive the reply.
@@ -187,9 +191,10 @@ async def stream_response(session_id: str, agency_token: str | None = Cookie(def
     user_message = session["pending_message"]
     file_refs = session.pop("pending_files", [])
     session["pending_message"] = ""
+    sanitised_message = sanitise_user_input(user_message, user_id=session.get("user_id"))
     session["conversation_history"].append({
         "role": "user",
-        "content": user_message,
+        "content": sanitised_message,
     })
     await save_session(session_id, session)
 
@@ -234,6 +239,8 @@ async def stream_response(session_id: str, agency_token: str | None = Cookie(def
             if email:
                 title = user_message[:80] + ("…" if len(user_message) > 80 else "")
                 await log_history_item(email, "Assistant", title, full_response)
+            if email:
+                await increment_usage(redis_client, email, "assistant")
 
         session["stage"] = "idle"
         await save_session(session_id, session)

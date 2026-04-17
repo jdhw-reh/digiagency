@@ -17,47 +17,7 @@ import threading
 from google import genai
 from google.genai import types
 from agents.gemini_stream import stream_with_retry
-
-RESEARCHER_SYSTEM_PROMPT = """You are a senior SEO keyword researcher. You use real-time \
-search data to identify the best keyword opportunities for a specific page. You understand \
-search intent deeply and always match keyword targeting to the right page type.
-
-You have access to Google Search — use it to find real search volumes, competition levels, \
-related queries and SERP features. Ground every recommendation in actual data.
-
-You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name."""
-
-RESEARCHER_PROMPT = """Research keywords and search intent for this page:
-
-Page type: {page_type}
-Brief / topic: {prompt}
-{location_section}
-{audit_context_section}
-
-Use Google Search to investigate:
-1. What is the primary keyword with the best traffic-to-competition ratio for this page?
-2. What are 5–8 semantically related keywords and LSI terms to include in the copy?
-3. What search intent dominates this query? (informational / transactional / local / commercial)
-4. What questions does the target audience ask? (People Also Ask / related searches)
-5. Who ranks on page 1? What content patterns do they share?
-
-Write a keyword research summary covering your findings (3–4 paragraphs).
-
-Then output the structured keyword brief as JSON enclosed in <keyword_data> and </keyword_data> tags:
-
-<keyword_data>
-{{
-  "primary_keyword": "main target keyword",
-  "secondary_keywords": ["kw2", "kw3", "kw4"],
-  "lsi_terms": ["term1", "term2", "term3", "term4", "term5"],
-  "search_intent": "transactional",
-  "target_audience": "description of who is searching",
-  "recommended_word_count": 800,
-  "key_questions_to_answer": ["question 1?", "question 2?", "question 3?"],
-  "top_competitors": ["competitor1.com", "competitor2.com"],
-  "page_structure_tips": ["tip 1", "tip 2", "tip 3"]
-}}
-</keyword_data>"""
+from utils.prompts import get_system_prompt, get_user_prompt
 
 
 async def run(prompt: str, page_type: str, location: str = "", audit_context: str = "", api_key: str = ""):
@@ -72,7 +32,8 @@ async def run(prompt: str, page_type: str, location: str = "", audit_context: st
     if audit_context.strip():
         audit_context_section = f"\nSEO Audit context (existing site findings):\n{audit_context}\n"
 
-    full_prompt = RESEARCHER_PROMPT.format(
+    full_prompt = get_user_prompt(
+        "on_page_opt/researcher",
         page_type=page_type or "Service page",
         prompt=prompt,
         location_section=location_section,
@@ -87,7 +48,7 @@ async def run(prompt: str, page_type: str, location: str = "", audit_context: st
             "gemini-2.5-flash",
             full_prompt,
             types.GenerateContentConfig(
-                system_instruction=RESEARCHER_SYSTEM_PROMPT,
+                system_instruction=get_system_prompt("on_page_opt/researcher"),
                 temperature=0.3,
             ),
             result_queue,
@@ -102,7 +63,7 @@ async def run(prompt: str, page_type: str, location: str = "", audit_context: st
     while True:
         try:
             kind, value = await loop.run_in_executor(
-                None, lambda: result_queue.get(timeout=90)
+                None, lambda: result_queue.get(timeout=120)
             )
         except queue.Empty:
             yield ("error", "Researcher timed out")

@@ -1,0 +1,29 @@
+version: "1.0"
+system_prompt: |-
+  You are a senior SEO strategist who turns raw audit data into clear strategic analysis. You are direct, specific, and always tie observations to business impact. You do not repeat the raw data — you interpret it.
+
+  You are part of Digi Agency — an AI marketing platform. Never refer to yourself or this platform by any other name.
+user_prompt_template: |-
+  Here is the raw SEO audit for {url}:
+
+  Business context: {context}
+  {competitor_section}
+  Audit findings:
+  {audit_data}
+
+  Produce a structured SEO analysis with these sections:
+
+  ## Strengths
+  What is this site already doing well from an SEO perspective? (2–3 bullet points)
+
+  ## Critical Gaps
+  What are the most damaging gaps — keywords, content, authority — that are costing them rankings right now? (3–4 bullet points, be specific)
+
+  ## Competitive Position
+  How do they compare to the competitors identified? Where are they losing ground and where do they have an edge?
+
+  ## Highest-Leverage Opportunities
+  The 3 opportunities with the best ratio of effort to SEO impact. Be concrete — name the keyword clusters, content types, or structural changes.
+
+  Keep the analysis tight — 400–600 words total.
+notes: "No search grounding. competitor_section is pre-formatted by the caller (empty string if no competitors). audit_data is JSON-serialised."

@@ -7,23 +7,30 @@ function selectPlan(plan) {
 }
 
 function switchTab(tab) {
-  const showId = tab === "login" ? "form-login" : "form-register";
-  const hideId = tab === "login" ? "form-register" : "form-login";
-  const show = document.getElementById(showId);
-  const hide = document.getElementById(hideId);
+  const allForms = ["form-login", "form-register", "form-forgot", "form-reset"];
+  const showId = tab === "login" ? "form-login" : tab === "register" ? "form-register" : "form-forgot";
 
-  hide.style.opacity = "0";
+  allForms.forEach(id => {
+    const el = document.getElementById(id);
+    if (el.id === showId) return;
+    el.style.opacity = "0";
+    setTimeout(() => { el.style.display = "none"; }, 140);
+  });
+
+  const show = document.getElementById(showId);
   setTimeout(() => {
-    hide.style.display = "none";
     show.style.display = "block";
     show.offsetHeight; // force reflow
     show.style.opacity = "1";
   }, 140);
 
+  const showingAuth = tab === "login" || tab === "register";
+  document.querySelector(".tabs").style.display = showingAuth ? "" : "none";
   document.getElementById("tab-login").classList.toggle("active",    tab === "login");
   document.getElementById("tab-register").classList.toggle("active", tab === "register");
-  document.getElementById("login-error").textContent = "";
-  document.getElementById("reg-error").textContent   = "";
+  document.getElementById("login-error").textContent  = "";
+  document.getElementById("reg-error").textContent    = "";
+  document.getElementById("forgot-error").textContent = "";
 }
 
 async function doLogin() {
@@ -135,9 +142,92 @@ async function doRegister() {
   }
 }
 
+async function doForgotPassword() {
+  const email = document.getElementById("forgot-email").value.trim();
+  const errEl = document.getElementById("forgot-error");
+  const btn   = document.getElementById("forgot-btn");
+
+  errEl.textContent = "";
+  if (!email) { errEl.textContent = "Please enter your email address."; return; }
+
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+
+  try {
+    await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    errEl.classList.add("success");
+    errEl.textContent = "If that email is registered, a reset link is on its way.";
+    btn.textContent = "Link sent";
+  } catch {
+    errEl.classList.remove("success");
+    errEl.textContent = "Network error — please try again.";
+    btn.disabled = false;
+    btn.textContent = "Send reset link";
+  }
+}
+
+async function doResetPassword() {
+  const token    = document.getElementById("reset-token").value;
+  const password = document.getElementById("reset-password").value.trim();
+  const errEl    = document.getElementById("reset-error");
+  const btn      = document.getElementById("reset-btn");
+
+  errEl.classList.remove("success");
+  errEl.textContent = "";
+  if (!password) { errEl.textContent = "Please enter a new password."; return; }
+
+  btn.disabled = true;
+  btn.textContent = "Updating…";
+
+  try {
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password: password }),
+    });
+    let data = {};
+    try { data = await res.json(); } catch { /* non-JSON */ }
+
+    if (!res.ok) {
+      errEl.textContent = data.error || "Something went wrong. Please try again.";
+      btn.disabled = false;
+      btn.textContent = "Update password";
+      return;
+    }
+
+    errEl.classList.add("success");
+    errEl.textContent = "Password updated! Redirecting to sign in…";
+    setTimeout(() => {
+      window.history.replaceState({}, "", "/login");
+      switchTab("login");
+    }, 1800);
+  } catch {
+    errEl.textContent = "Network error — please try again.";
+    btn.disabled = false;
+    btn.textContent = "Update password";
+  }
+}
+
 // Handle Stripe return URL params + persist plan selection
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
+
+  // Password reset link — show reset form and hide everything else
+  const resetToken = params.get("token");
+  if (resetToken) {
+    document.getElementById("reset-token").value = resetToken;
+    ["form-login", "form-register", "form-forgot"].forEach(id => {
+      document.getElementById(id).style.display = "none";
+    });
+    document.getElementById("form-reset").style.display = "block";
+    document.querySelector(".tabs").style.display = "none";
+    window.history.replaceState({}, "", "/reset-password");
+    return; // skip plan/checkout param handling
+  }
 
   const plan = params.get("plan");
   if (plan === "starter" || plan === "pro") {
@@ -169,5 +259,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("reg-password").addEventListener("keydown", e => {
     if (e.key === "Enter") doRegister();
+  });
+  document.getElementById("forgot-email").addEventListener("keydown", e => {
+    if (e.key === "Enter") doForgotPassword();
   });
 });
