@@ -50,6 +50,28 @@
       });
     }
 
+    if (response.status === 429) {
+      const clone = response.clone();
+      clone.json().then(data => {
+        if (data?.error === "monthly_limit_reached") {
+          if (window.showLimitBanner) {
+            window.showLimitBanner(data.tool, data.limit, data.used);
+          }
+        }
+        // Other 429s (rate limits) fall through — callers handle them
+      }).catch(() => {});
+    }
+
+    if (response.status === 403) {
+      const clone = response.clone();
+      clone.json().then(data => {
+        if (data?.error === "tool_locked" && window.showToolLockedModal) {
+          const toolLabel = (window._usageToolNames || {})[data.tool] || data.tool || "this tool";
+          window.showToolLockedModal(toolLabel);
+        }
+      }).catch(() => {});
+    }
+
     return response;
   };
 

@@ -3406,3 +3406,187 @@ button:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
   color: var(--accent);
   text-decoration: underline;
 }
+
+/* =========================================================
+   USAGE BARS
+   ========================================================= */
+
+.usage-bar-slot {
+  padding: 0 0 4px;
+}
+
+.usage-bar-wrap {
+  padding: 8px 12px;
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 8px 0 4px;
+  font-size: 0.78rem;
+}
+
+.usage-bar-label {
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.usage-bar-track {
+  height: 5px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.usage-bar-fill--green { background: #22c55e; }
+.usage-bar-fill--amber { background: #f59e0b; }
+.usage-bar-fill--red   { background: #ef4444; }
+
+.usage-bar-sub {
+  margin-top: 4px;
+  color: var(--text-dim, var(--text-muted));
+  font-size: 0.72rem;
+}
+
+.usage-upgrade-link {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.usage-bar-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 8px 0 4px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.usage-lock-icon { font-size: 0.9rem; }
+
+/* =========================================================
+   LIMIT BANNER
+   ========================================================= */
+
+.limit-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fef3c7;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .limit-banner {
+  background: #3b2f00;
+  border-color: #78500a;
+  color: #fde68a;
+}
+
+.limit-banner-upgrade {
+  white-space: nowrap;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* =========================================================
+   TOOL LOCKED MODAL
+   ========================================================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-box {
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.modal-body {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   HOME USAGE CARD
+   ========================================================= */
+
+.usage-card-section {
+  margin-bottom: 24px;
+}
+
+.usage-card-heading {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+#home-usage-card {
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.usage-card-row + .usage-card-row {
+  margin-top: 8px;
+}
+
+.usage-card-row .usage-bar-wrap {
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+}
+
+.usage-unlimited-msg {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0;
+}

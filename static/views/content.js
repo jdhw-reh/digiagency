@@ -458,7 +458,7 @@ function wireButtons() {
         appendToOutput(ui.writerOutput, articleText);
         updateWordCount(articleText);
       },
-      onDone:  () => { finaliseOutput(ui.writerOutput); setPanelSummary(ui.panelWriter, '<span>Article written</span>'); setStage("done"); },
+      onDone:  () => { finaliseOutput(ui.writerOutput); setPanelSummary(ui.panelWriter, '<span>Article written</span>'); setStage("done"); if (window.loadUsageData) window.loadUsageData(); },
       onError: (msg) => { setStage("awaiting_write"); showError(msg); },
     });
   });

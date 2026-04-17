@@ -569,6 +569,7 @@ async function startImplement() {
       setPanelSummary(sau.panelImplementer, '<span>Implementation guide ready</span>');
       showGuideActions();
       setAuditStage("done");
+      if (window.loadUsageData) window.loadUsageData();
     } else if (msg.type === "error") {
       es.close();
       cursor.remove();

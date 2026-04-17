@@ -300,6 +300,7 @@ async function sendMessage() {
       aui.input.disabled = false;
       aui.btnAttach.disabled = false;
       aui.input.focus();
+      if (window.loadUsageData) window.loadUsageData();
     } else if (msg.type === "error") {
       es.close();
       const cursor = bubble.querySelector(".stream-cursor");

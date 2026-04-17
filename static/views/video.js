@@ -319,6 +319,7 @@ async function handleDirectClick() {
     },
     onDone() {
       setVideoStage("done");
+      if (window.loadUsageData) window.loadUsageData();
     },
     onError() {
       setVideoStage("idle");
@@ -436,7 +437,9 @@ function viewDidMount_video() {
     }
   } catch { /* fall through to blank state */ }
 
-  initVideoSession();
+  initVideoSession().then(() => {
+    if (window.applyVideoLockedState) window.applyVideoLockedState();
+  });
 }
 
 function viewWillUnmount_video() {

@@ -624,7 +624,7 @@ function wireSocialButtons() {
         sui.panelCopywriter.classList.add("posts-ready");
         sui.postCount.textContent = `${n} post${n !== 1 ? "s" : ""}`;
       },
-      onDone: () => { setPanelSummary($s('social-panel-copywriter'), '<span>Posts written</span>'); setSocialStage("done"); },
+      onDone: () => { setPanelSummary($s('social-panel-copywriter'), '<span>Posts written</span>'); setSocialStage("done"); if (window.loadUsageData) window.loadUsageData(); },
       onError: (msg) => { setSocialStage("awaiting_copy"); showSocialError(msg); },
     });
   });

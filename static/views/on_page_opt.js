@@ -443,6 +443,7 @@ async function startRewrite() {
       cursor.remove();
       setPanelSummary($op('opt-panel-b'), '<span>Copy ready</span>');
       setOptStage("done");
+      if (window.loadUsageData) window.loadUsageData();
     } else if (msg.type === "error") {
       es.close();
       cursor.remove();
@@ -577,6 +578,7 @@ async function startWrite() {
       cursor.remove();
       setPanelSummary($op('opt-panel-b'), '<span>Copy ready</span>');
       setOptStage("done");
+      if (window.loadUsageData) window.loadUsageData();
     } else if (msg.type === "error") {
       es.close();
       cursor.remove();
