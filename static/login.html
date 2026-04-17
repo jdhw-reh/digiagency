@@ -268,6 +268,7 @@
     <div class="tabs">
       <button class="tab active" id="tab-login"    onclick="switchTab('login')">Sign in</button>
       <button class="tab"        id="tab-register" onclick="switchTab('register')">Create account</button>
+      <button class="tab"        id="tab-join"     onclick="switchTab('join')">Join a team</button>
     </div>
 
     <!-- Login form -->
@@ -330,6 +331,33 @@
       </div>
       <button class="submit-btn" id="reg-btn" onclick="doRegister()">Create account</button>
       <div class="error-msg" id="reg-error"></div>
+    </div>
+
+    <!-- Join a team form -->
+    <div id="form-join" style="display:none">
+      <div class="form-group">
+        <label for="join-code">Workspace code</label>
+        <input type="text" id="join-code" placeholder="e.g. DIGI-7K2M" autocomplete="off"
+               oninput="this.value = this.value.toUpperCase()" spellcheck="false">
+      </div>
+      <div class="form-group">
+        <label for="join-name">Your name</label>
+        <input type="text" id="join-name" placeholder="Jane Smith" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="join-email">Email address</label>
+        <input type="email" id="join-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="join-password">Password</label>
+        <input type="password" id="join-password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+      <button class="submit-btn" id="join-btn" onclick="doJoinTeam()">Request access</button>
+      <p style="text-align:center;margin-top:16px;font-size:12px;color:#898780;">
+        Your team admin will approve your request before you get access.
+      </p>
+      <div class="error-msg" id="join-error"></div>
+      <div class="error-msg success" id="join-success" style="display:none"></div>
     </div>
 
     <!-- Reset password form (shown when ?token= is in the URL) -->

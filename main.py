@@ -60,6 +60,7 @@ from routers.admin import router as admin_router
 from routers.checkout import router as checkout_router
 from routers.stripe_webhook import router as stripe_webhook_router
 from routers.support import router as support_router
+from routers.team import router as team_router
 
 _ai_rate_limit = AIRateLimit()
 
@@ -99,6 +100,7 @@ async def require_active_subscription(request: Request, call_next):
     if (
         path == "/login"
         or path == "/reset-password"
+        or path == "/pending"
         or path == "/health"
         or path.startswith("/static/")
         or path.startswith("/api/auth/")
@@ -107,6 +109,12 @@ async def require_active_subscription(request: Request, call_next):
         or path.startswith("/api/admin/")
         or path.startswith("/api/checkout/")
         or path.startswith("/api/stripe/")
+    ):
+        return await call_next(request)
+
+    # Allow email-action approve/deny without cookie auth — token validated in the route
+    if request.query_params.get("auth") == "email_action" and (
+        path.startswith("/api/team/approve/") or path.startswith("/api/team/deny/")
     ):
         return await call_next(request)
 
@@ -125,12 +133,31 @@ async def require_active_subscription(request: Request, call_next):
         return RedirectResponse("/login")
 
     account = await get_account(email)
-    if not account or account.get("subscription_status") != "active":
+    if not account:
         if path.startswith("/api/"):
             return JSONResponse({"error": "No active subscription"}, status_code=402)
         return RedirectResponse("/login")
 
-    return await call_next(request)
+    status = account.get("subscription_status")
+
+    if status == "active":
+        return await call_next(request)
+
+    if status == "pending_team":
+        if path.startswith("/api/"):
+            return JSONResponse(
+                {
+                    "error": "pending_approval",
+                    "message": "Your request to join the team is pending approval from the workspace owner.",
+                },
+                status_code=402,
+            )
+        return RedirectResponse("/pending")
+
+    # inactive or cancelled
+    if path.startswith("/api/"):
+        return JSONResponse({"error": "No active subscription"}, status_code=402)
+    return RedirectResponse("/login")
 
 # ---------------------------------------------------------------------------
 # Canonical domain — redirect railway.app URLs to the custom domain
@@ -202,6 +229,11 @@ async def login_page():
 @app.get("/reset-password")
 async def reset_password_page():
     return FileResponse(str(static_dir / "login.html"))
+
+
+@app.get("/pending")
+async def pending_page():
+    return FileResponse(str(static_dir / "pending.html"))
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +386,7 @@ app.include_router(agency_router,          prefix="/api/agency",      dependenci
 app.include_router(setup_router,           prefix="/api/setup",       dependencies=_csrf_dep)
 app.include_router(checkout_router,        prefix="/api/checkout",    dependencies=_csrf_dep)
 app.include_router(support_router,         prefix="/api/support",     dependencies=_csrf_dep)
+app.include_router(team_router,            prefix="/api/team",        dependencies=_csrf_dep)
 
 # Stripe webhook: excluded — Stripe authenticates via HMAC signature, not cookies,
 # and adding our custom header would break Stripe's outbound calls.

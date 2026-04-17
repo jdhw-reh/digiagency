@@ -31,15 +31,19 @@ _SECURE_COOKIES = os.getenv("ENVIRONMENT", "production") != "development"
 
 from state import (
     create_auth_token,
+    create_join_request,
     delete_auth_token,
     get_account,
+    get_join_request,
+    get_member_count,
+    get_team,
     get_token_email,
     hash_password,
     redis_client,
     save_account,
     verify_password,
 )
-from services.email import send_password_reset_email, send_welcome_email
+from services.email import send_join_request_email, send_password_reset_email, send_welcome_email
 
 _PWD_RESET_TTL = 3600  # 1 hour
 
@@ -80,6 +84,13 @@ class ForgotPasswordPayload(BaseModel):
 class ResetPasswordPayload(BaseModel):
     token: str
     new_password: str
+
+
+class TeamMemberRegisterPayload(BaseModel):
+    workspace_code: str
+    name: str
+    email: str
+    password: str
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +195,65 @@ async def reset_password(payload: ResetPasswordPayload):
     return {"ok": True, "message": "Password updated. You can now sign in with your new password."}
 
 
+@router.post("/register-team-member")
+async def register_team_member(payload: TeamMemberRegisterPayload):
+    email = payload.email.lower().strip()
+    password = payload.password.strip()
+    workspace_code = payload.workspace_code.strip().upper()
+
+    if len(password) < 8:
+        return JSONResponse({"error": "Password must be at least 8 characters."}, status_code=400)
+
+    owner_email = await redis_client.get(f"workspace_code:{workspace_code}")
+    if not owner_email:
+        return JSONResponse({"error": "Workspace code not found."}, status_code=404)
+
+    existing = await get_account(email)
+    if existing:
+        return JSONResponse({"error": "An account with that email already exists."}, status_code=409)
+
+    owner_account = await get_account(owner_email)
+    if not owner_account:
+        return JSONResponse({"error": "Workspace not found."}, status_code=404)
+
+    team_id = owner_account.get("team_id")
+    if not team_id:
+        return JSONResponse({"error": "Workspace not found."}, status_code=404)
+
+    seats = await get_member_count(team_id)
+    if seats >= 5:
+        return JSONResponse({"error": "Team is full."}, status_code=400)
+
+    account = {
+        "email": email,
+        "password_hash": hash_password(password),
+        "subscription_status": "pending_team",
+        "plan": None,
+        "team_id": None,
+        "team_role": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await save_account(email, account)
+
+    token = await create_join_request(workspace_code, owner_email, team_id, email, payload.name)
+
+    jr = await get_join_request(token) or {}
+    eat = jr.get("email_action_token", "")
+    canonical = os.getenv("APP_URL", "https://digiagency.up.railway.app").rstrip("/")
+    approve_url = f"{canonical}/api/team/approve/{token}?auth=email_action&eat={eat}"
+    deny_url = f"{canonical}/api/team/deny/{token}?auth=email_action&eat={eat}"
+
+    asyncio.create_task(send_join_request_email(
+        owner_email, email, payload.name,
+        approve_url, deny_url, seats,
+    ))
+
+    return JSONResponse(
+        {"message": "Request submitted", "owner_email": owner_email},
+        status_code=201,
+    )
+
+
 @router.get("/me")
 async def me(agency_token: str | None = Cookie(default=None)):
     if not agency_token:
@@ -200,5 +270,9 @@ async def me(agency_token: str | None = Cookie(default=None)):
     return {
         "email": account["email"],
         "subscription_status": account.get("subscription_status", "inactive"),
+        "plan": account.get("plan"),
+        "team_id": account.get("team_id"),
+        "team_role": account.get("team_role"),
+        "workspace_code": account.get("workspace_code"),
         "created_at": account.get("created_at"),
     }

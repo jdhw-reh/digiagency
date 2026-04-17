@@ -20,7 +20,7 @@ import stripe
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from state import get_account, list_accounts, redis_client, save_account
+from state import create_team, get_account, list_accounts, redis_client, save_account
 from services.email import send_subscription_activated_email, send_subscription_cancelled_email
 
 _ADMIN_EMAIL = "digi.admin.ai@gmail.com"
@@ -136,6 +136,10 @@ async def stripe_webhook(request: Request):
                         400 * 86400,
                         email,
                     )
+                    # Create team record; set owner fields on account
+                    team_id = await create_team(email)
+                    account["team_id"] = team_id
+                    account["team_role"] = "owner"
 
                 await save_account(email, account)
                 await _notify_admin_new_signup(email, plan)

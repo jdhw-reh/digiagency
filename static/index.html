@@ -1077,6 +1077,38 @@
       </div>
     </div>
 
+    <!-- Team section — shown when user is on Agency plan or has a team role -->
+    <div id="ob-team-section" style="display:none; border-top: 1px solid #E4E3DF; padding-top: 20px; margin-top: 4px;">
+      <div class="ob-body">
+        <div id="ob-team-owner-view" style="display:none">
+          <p class="ob-label" style="margin-bottom:10px;">Team</p>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:13px;color:#45443F;font-weight:500;">Workspace code</span>
+            <code id="ob-workspace-code" style="background:#F7F6F3;border:1px solid #E4E3DF;border-radius:6px;padding:3px 10px;font-size:14px;font-weight:600;letter-spacing:0.06em;color:#6366f1;"></code>
+            <button id="ob-copy-code-btn" class="btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="copyWorkspaceCode()">Copy</button>
+          </div>
+          <p id="ob-seats-label" style="font-size:13px;color:#898780;margin-bottom:14px;"></p>
+          <p style="font-size:12px;color:#898780;margin-bottom:16px;">Share your workspace code with teammates so they can request access.</p>
+
+          <!-- Members list -->
+          <div id="ob-members-list" style="margin-bottom:16px;"></div>
+
+          <!-- Pending requests -->
+          <div id="ob-pending-section" style="display:none;margin-top:16px;">
+            <p class="ob-label" style="margin-bottom:8px;">Pending requests</p>
+            <div id="ob-pending-list"></div>
+          </div>
+        </div>
+
+        <div id="ob-team-member-view" style="display:none">
+          <p class="ob-label" style="margin-bottom:10px;">Team</p>
+          <p id="ob-member-info" style="font-size:14px;color:#45443F;margin-bottom:6px;"></p>
+          <p style="font-size:13px;color:#898780;margin-bottom:16px;">Agency plan · managed by your workspace owner</p>
+          <button id="ob-leave-team-btn" class="btn-ghost" style="color:#dc2626;border-color:#fca5a5;" onclick="confirmLeaveTeam()">Leave team</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- #onboarding-modal -->
 
   <!-- ===== ERROR TOAST (global) ===== -->
@@ -1123,6 +1155,7 @@
   <script src="/static/views/video.js"></script>
   <script src="/static/views/on_page_opt.js"></script>
   <script src="/static/views/history.js"></script>
+  <script src="/static/team.js"></script>
 
 </body>
 </html>

@@ -273,3 +273,98 @@ async def send_password_reset_email(to: str, reset_token: str) -> None:
         "If you didn't request this, ignore this email and your password will remain unchanged."
     )
     await send_email(to, subject, html_body, text_body)
+
+
+# ---------------------------------------------------------------------------
+# 5. Join request notification (to owner)
+# ---------------------------------------------------------------------------
+
+async def send_join_request_email(
+    owner_email: str,
+    requester_email: str,
+    requester_name: str,
+    approve_url: str,
+    deny_url: str,
+    seats_used: int,
+) -> None:
+    subject = f"{requester_name} has requested access to your Digi Agency workspace"
+    content = (
+        _h1("New team access request")
+        + _p(
+            f'<strong style="color:#ffffff;">{requester_name}</strong> '
+            f'({requester_email}) has requested to join your Agency workspace.'
+        )
+        + _p(f'You have <strong style="color:#ffffff;">{seats_used} of 5 seats</strong> currently in use.')
+        + f'''<table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+  <tr>
+    <td style="padding-right:12px;">
+      <a href="{approve_url}" style="display:inline-block;background:#16a34a;color:#ffffff;
+         font-size:15px;font-weight:600;text-decoration:none;padding:13px 28px;border-radius:10px;">
+        Approve Access
+      </a>
+    </td>
+    <td>
+      <a href="{deny_url}" style="display:inline-block;background:#374151;color:#ffffff;
+         font-size:15px;font-weight:600;text-decoration:none;padding:13px 28px;border-radius:10px;">
+        Deny Request
+      </a>
+    </td>
+  </tr>
+</table>'''
+        + _divider()
+        + _p('<span style="color:#6b7280;font-size:13px;">This request expires in 72 hours.</span>')
+    )
+    html_body = _wrap_html(subject, content)
+    text_body = (
+        f"{requester_name} ({requester_email}) has requested to join your Agency workspace.\n\n"
+        f"Seats in use: {seats_used}/5\n\n"
+        f"Approve: {approve_url}\n"
+        f"Deny:    {deny_url}\n\n"
+        "This request expires in 72 hours."
+    )
+    await send_email(owner_email, subject, html_body, text_body)
+
+
+# ---------------------------------------------------------------------------
+# 6. Approval email (to new member)
+# ---------------------------------------------------------------------------
+
+async def send_approval_email(member_email: str, owner_email: str) -> None:
+    app = _app_url()
+    subject = "You've been approved — welcome to the team"
+    content = (
+        _h1("You're in! \U0001f389")
+        + _p(
+            f"Your request to join <strong style=\"color:#ffffff;\">{owner_email}'s</strong> "
+            "Digi Agency workspace has been approved."
+        )
+        + _p("You now have full Agency plan access. Sign in to get started.")
+        + _btn("Open Digi Agency \u2192", f"{app}/login")
+    )
+    html_body = _wrap_html(subject, content)
+    text_body = (
+        f"Your request to join {owner_email}'s Digi Agency workspace has been approved.\n\n"
+        f"Sign in here: {app}/login"
+    )
+    await send_email(member_email, subject, html_body, text_body)
+
+
+# ---------------------------------------------------------------------------
+# 7. Denial email (to requester)
+# ---------------------------------------------------------------------------
+
+async def send_denial_email(member_email: str, owner_email: str) -> None:
+    app = _app_url()
+    subject = "Your Digi Agency team request was not approved"
+    content = (
+        _h1("Request not approved")
+        + _p(f"Your request to join <strong style=\"color:#ffffff;\">{owner_email}'s</strong> workspace was not approved.")
+        + _p("If you'd like to use Digi Agency independently, you can start your own plan:")
+        + _btn("View plans \u2192", f"{app}/login#register")
+    )
+    html_body = _wrap_html(subject, content)
+    text_body = (
+        f"Your request to join {owner_email}'s workspace was not approved.\n\n"
+        f"To start your own plan: {app}/login"
+    )
+    await send_email(member_email, subject, html_body, text_body)

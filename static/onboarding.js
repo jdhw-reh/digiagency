@@ -60,6 +60,9 @@ function showModal() {
   if (existing.notion_page)  getPageInput().value   = existing.notion_page;
 
   getStep2Error().textContent = "";
+
+  // Notify team.js (and any other hooks) that settings opened
+  if (typeof window.onSettingsOpen === "function") window.onSettingsOpen();
 }
 
 function hideModal() {
@@ -238,7 +241,13 @@ function updateSettingsIndicator() {
 // Boot — check if onboarding is needed
 // ---------------------------------------------------------------------------
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // Fetch current user info for plan/team display
+  try {
+    const meRes = await fetch("/api/auth/me");
+    if (meRes.ok) window._currentUser = await meRes.json();
+  } catch {}
+
   _userId = getUserId();
 
   const step2Btn = getStep2Btn();

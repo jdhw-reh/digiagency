@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request pending — Digi Agency</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #F7F6F3;
+      color: #1C1B18;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 24px;
+      text-align: center;
+    }
+    .brand-mark { font-size: 32px; color: #6366f1; display: block; margin-bottom: 12px; }
+    .brand-name { font-size: 22px; font-weight: 600; color: #1C1B18; }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E4E3DF;
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      margin-top: 32px;
+    }
+    .icon { font-size: 40px; margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 600; margin-bottom: 14px; color: #1C1B18; }
+    p { font-size: 15px; line-height: 1.6; color: #45443F; }
+    .sign-out {
+      display: inline-block;
+      margin-top: 28px;
+      font-size: 13px;
+      color: #898780;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .sign-out:hover { color: #1C1B18; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <span class="brand-mark">✦</span>
+  <span class="brand-name">Digi Agency</span>
+  <div class="card">
+    <div class="icon">⏳</div>
+    <h1>Request pending</h1>
+    <p>Your request to join the workspace has been sent. The owner will review it shortly.</p>
+    <p style="margin-top: 12px;">We'll email you when your request is approved.</p>
+    <button class="sign-out" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+<script>
+async function signOut() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch {}
+  window.location.href = '/login';
+}
+</script>
+</body>
+</html>

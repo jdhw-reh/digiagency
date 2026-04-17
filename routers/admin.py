@@ -31,6 +31,8 @@ from state import (
     get_admin_audit_log,
     get_admin_note,
     get_analytics_counters,
+    get_team,
+    get_team_by_owner,
     get_user_activity,
     list_accounts,
     list_accounts_enriched,
@@ -233,6 +235,48 @@ async def admin_list_users(agency_admin: str | None = Cookie(default=None)):
         return JSONResponse({"error": "Forbidden"}, status_code=403)
     accounts = await list_accounts_enriched()
     return {"users": accounts}
+
+
+@router.get("/api/admin/agency-teams")
+async def admin_agency_teams(agency_admin: str | None = Cookie(default=None)):
+    if not await _is_admin(agency_admin):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    accounts = await list_accounts()
+    agency_owners = [
+        a for a in accounts
+        if a.get("plan") == "agency" and a.get("team_role") == "owner"
+    ]
+
+    result = []
+    for owner in agency_owners:
+        team_id = owner.get("team_id")
+        if not team_id:
+            continue
+        team = await get_team(team_id)
+        if not team:
+            continue
+
+        enriched_members = []
+        for m in team.get("members", []):
+            member_acct = await get_account(m["email"])
+            enriched_members.append({
+                "email": m["email"],
+                "joined_at": m.get("joined_at", ""),
+                "subscription_status": (member_acct or {}).get("subscription_status", "unknown"),
+            })
+
+        result.append({
+            "owner_email": owner["email"],
+            "workspace_code": owner.get("workspace_code", ""),
+            "subscription_status": owner.get("subscription_status", "unknown"),
+            "seats_used": 1 + len(team.get("members", [])),
+            "max_seats": team.get("max_seats", 5),
+            "created_at": owner.get("created_at", ""),
+            "members": enriched_members,
+        })
+
+    return result
 
 
 @router.post("/api/admin/users/activate")
@@ -826,6 +870,13 @@ def _admin_page() -> str:
     #users-table td.user-detail { display: none; }
     #users-table tr.expanded td.user-detail { display: block; }
   }
+  /* Agency Teams */
+  .agency-team-row { border-left: 3px solid #8b5cf6 !important; }
+  .member-row { background: #001a35; }
+  .member-row td { padding: 9px 16px 9px 36px; font-size: 13px; border-bottom: 1px solid #002a4d; color: #bbdaff; }
+  .member-row:last-child td { border-bottom: none; }
+  .badge-pending { background: #2d1800; color: #ffc58f; }
+  .badge-agency { background: #1a003d; color: #c4b5fd; }
 </style>
 </head>
 <body>
@@ -890,6 +941,14 @@ def _admin_page() -> str:
     <h2>Activity by Day of Week</h2>
     <div class="chart-section-label">All time · UTC</div>
     <div id="chart-weekdays"></div>
+  </div>
+</div>
+
+<!-- Agency Teams section -->
+<div class="section" id="agency-teams-section">
+  <h2>Agency Teams</h2>
+  <div id="agency-teams-body">
+    <div class="empty" style="padding:24px;text-align:center;color:#4a7aa0;">Loading\u2026</div>
   </div>
 </div>
 
@@ -1470,9 +1529,69 @@ async function loadAuditLog() {
   }
 }
 
+// ---- Agency Teams ----
+async function loadAgencyTeams() {
+  const container = document.getElementById('agency-teams-body');
+  try {
+    const res = await fetch('/api/admin/agency-teams');
+    if (!res.ok) { container.innerHTML = '<div class="empty">Failed to load agency teams.</div>'; return; }
+    const teams = await res.json();
+    if (!teams.length) {
+      container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:#4a7aa0;">No Agency teams yet.</div>';
+      return;
+    }
+    container.innerHTML = teams.map((t, i) => {
+      const statusCls = t.subscription_status === 'active' ? 'badge-active' : t.subscription_status === 'cancelled' ? 'badge-cancelled' : 'badge-inactive';
+      const memberRows = t.members.map(m => {
+        const mStatusCls = m.subscription_status === 'active' ? 'badge-active' : 'badge-pending';
+        const mStatusLabel = m.subscription_status === 'active' ? 'Active' : 'Pending';
+        const mJoined = m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
+        return `<tr class="member-row" id="team-members-${i}" style="display:none">
+          <td colspan="6">
+            <span style="color:#7285b7;font-size:11px;margin-right:8px;">\u21b3 member</span>
+            ${escHtml(m.email)}
+            <span style="font-size:12px;color:#4d6b9a;margin-left:8px;">Joined ${escHtml(mJoined)}</span>
+            <span class="badge ${mStatusCls}" style="margin-left:8px;font-size:11px;">${mStatusLabel}</span>
+          </td>
+        </tr>`;
+      }).join('');
+      const created = t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
+      return `<table style="width:100%;border-collapse:collapse;background:#00346e;border:1px solid #0d4a8a;border-radius:12px;overflow:hidden;margin-bottom:8px;">
+        <tbody>
+          <tr class="churn-row agency-team-row" style="border-left-color:#8b5cf6 !important;">
+            <td class="user-card-header" style="cursor:pointer;padding:12px 16px;" onclick="toggleTeamMembers(${i})">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span id="team-chevron-${i}" style="color:#5ba3ff;font-size:11px;">\u25b6</span>
+                ${escHtml(t.owner_email)}
+              </div>
+            </td>
+            <td style="padding:12px 16px;"><span class="badge ${statusCls}">${t.subscription_status}</span></td>
+            <td style="padding:12px 16px;"><span class="badge badge-agency">Agency</span></td>
+            <td style="padding:12px 16px;font-family:monospace;font-size:13px;color:#c4b5fd;">${escHtml(t.workspace_code)}</td>
+            <td style="padding:12px 16px;font-size:13px;">${t.seats_used}/${t.max_seats}</td>
+            <td style="padding:12px 16px;" class="ts-cell">${escHtml(created)}</td>
+          </tr>
+          ${memberRows}
+        </tbody>
+      </table>`;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="empty">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function toggleTeamMembers(i) {
+  const rows = document.querySelectorAll(`#team-members-${i}`);
+  const chevron = document.getElementById(`team-chevron-${i}`);
+  const isVisible = rows.length && rows[0].style.display !== 'none';
+  rows.forEach(r => { r.style.display = isVisible ? 'none' : 'table-row'; });
+  if (chevron) chevron.textContent = isVisible ? '\u25b6' : '\u25bc';
+}
+
 // ---- Init ----
 loadStats();
 loadUsers();
+loadAgencyTeams();
 loadActivity();
 loadAnalytics();
 loadBilling();

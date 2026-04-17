@@ -100,6 +100,17 @@ class ToolAccess:
         account = await get_account(email)
         plan = (account or {}).get("plan", "pro")
 
+        # Team members inherit the owner's plan
+        if (account or {}).get("team_role") == "member":
+            team_id = (account or {}).get("team_id")
+            if team_id:
+                from state import get_team
+                team = await get_team(team_id)
+                if team:
+                    owner_account = await get_account(team["owner_email"])
+                    if owner_account and owner_account.get("subscription_status") == "active":
+                        plan = owner_account.get("plan", "starter") or "starter"
+
         if plan not in MONTHLY_CAPS:
             plan = "pro"
 

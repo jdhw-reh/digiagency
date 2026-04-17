@@ -67,12 +67,22 @@ async def patch_redis(fake_redis):
     rl_module.redis_client = fake_redis
     webhook_module.redis_client = fake_redis
 
+    try:
+        import routers.team as team_module
+        original_team = team_module.redis_client
+        team_module.redis_client = fake_redis
+    except ImportError:
+        original_team = None
+        team_module = None
+
     yield
 
     state.redis_client = original
     csrf_module.redis_client = original
     rl_module.redis_client = original
     webhook_module.redis_client = original
+    if team_module and original_team is not None:
+        team_module.redis_client = original_team
 
 
 # ---------------------------------------------------------------------------

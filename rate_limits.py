@@ -27,7 +27,9 @@ LIMITS: dict[str, dict[str, int]] = {
 
 
 async def _resolve(token: str | None) -> tuple[str, str]:
-    """Return (user_identifier, plan) for the given auth token."""
+    """Return (user_identifier, plan) for the given auth token.
+    Team members inherit the plan from their team owner.
+    """
     if not token:
         return ("anonymous", "starter")
     email = await get_token_email(token)
@@ -36,8 +38,21 @@ async def _resolve(token: str | None) -> tuple[str, str]:
     account = await get_account(email)
     if not account:
         return (email, "starter")
-    # Default to pro for existing subscribers that pre-date plan storage
+
+    # Team members inherit the owner's plan
+    if account.get("team_role") == "member" and account.get("team_id"):
+        from state import get_team
+        team = await get_team(account["team_id"])
+        if team:
+            owner_account = await get_account(team["owner_email"])
+            if owner_account and owner_account.get("subscription_status") == "active":
+                owner_plan = owner_account.get("plan", "starter")
+                return (email, owner_plan if owner_plan in LIMITS else "starter")
+        return (email, "starter")
+
     plan = account.get("plan", "pro")
+    if plan not in LIMITS:
+        plan = "pro"
     return (email, plan)
 
 

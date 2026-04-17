@@ -10,12 +10,13 @@ function selectPlan(plan) {
 }
 
 function switchTab(tab) {
-  const allForms = ["form-login", "form-register", "form-forgot", "form-reset"];
-  const showId = tab === "login" ? "form-login" : tab === "register" ? "form-register" : "form-forgot";
+  const allForms = ["form-login", "form-register", "form-forgot", "form-reset", "form-join"];
+  const showMap = { login: "form-login", register: "form-register", forgot: "form-forgot", join: "form-join" };
+  const showId = showMap[tab] || "form-login";
 
   allForms.forEach(id => {
     const el = document.getElementById(id);
-    if (el.id === showId) return;
+    if (!el || el.id === showId) return;
     el.style.opacity = "0";
     setTimeout(() => { el.style.display = "none"; }, 140);
   });
@@ -23,17 +24,19 @@ function switchTab(tab) {
   const show = document.getElementById(showId);
   setTimeout(() => {
     show.style.display = "block";
-    show.offsetHeight; // force reflow
+    show.offsetHeight;
     show.style.opacity = "1";
   }, 140);
 
-  const showingAuth = tab === "login" || tab === "register";
+  const showingAuth = tab === "login" || tab === "register" || tab === "join";
   document.querySelector(".tabs").style.display = showingAuth ? "" : "none";
   document.getElementById("tab-login").classList.toggle("active",    tab === "login");
   document.getElementById("tab-register").classList.toggle("active", tab === "register");
+  document.getElementById("tab-join").classList.toggle("active",     tab === "join");
   document.getElementById("login-error").textContent  = "";
   document.getElementById("reg-error").textContent    = "";
   document.getElementById("forgot-error").textContent = "";
+  document.getElementById("join-error").textContent   = "";
 }
 
 async function doLogin() {
@@ -213,6 +216,66 @@ async function doResetPassword() {
   }
 }
 
+async function doJoinTeam() {
+  const code      = document.getElementById("join-code").value.trim().toUpperCase();
+  const name      = document.getElementById("join-name").value.trim();
+  const email     = document.getElementById("join-email").value.trim();
+  const password  = document.getElementById("join-password").value;
+  const errEl     = document.getElementById("join-error");
+  const successEl = document.getElementById("join-success");
+  const btn       = document.getElementById("join-btn");
+
+  errEl.textContent = "";
+  successEl.style.display = "none";
+
+  if (!code || !name || !email || !password) {
+    errEl.textContent = "Please fill in all fields.";
+    return;
+  }
+  if (!/^[A-Z0-9]{4}-[A-Z0-9]+$/.test(code)) {
+    errEl.textContent = "Workspace code format looks wrong — check it with your admin (e.g. DIGI-7K2M).";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Sending request\u2026";
+
+  try {
+    const res = await fetch("/api/auth/register-team-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspace_code: code, name, email, password }),
+    });
+    let data = {};
+    try { data = await res.json(); } catch {}
+
+    if (res.status === 201) {
+      document.getElementById("form-join").style.display = "none";
+      successEl.style.display = "block";
+      const ownerDisplay = data.owner_email ? data.owner_email : "the workspace owner";
+      successEl.textContent = `Request sent! We\u2019ll email you once ${ownerDisplay} approves your access.`;
+      return;
+    }
+
+    if (res.status === 404) {
+      errEl.textContent = "Workspace code not found. Double-check the code with your team admin.";
+    } else if (res.status === 409) {
+      errEl.textContent = "An account with this email already exists. Sign in instead, then request to join from your account settings.";
+    } else if (res.status === 400) {
+      errEl.textContent = (data.error || "").includes("full")
+        ? "This workspace has reached its maximum number of seats."
+        : (data.error || "Something went wrong. Please try again.");
+    } else {
+      errEl.textContent = data.error || `Something went wrong (${res.status}). Please try again.`;
+    }
+  } catch {
+    errEl.textContent = "Network error \u2014 please try again.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Request access";
+  }
+}
+
 // Handle Stripe return URL params + persist plan selection
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
@@ -263,5 +326,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("forgot-email").addEventListener("keydown", e => {
     if (e.key === "Enter") doForgotPassword();
+  });
+  document.getElementById("join-password").addEventListener("keydown", e => {
+    if (e.key === "Enter") doJoinTeam();
+  });
+  document.getElementById("join-email").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("join-password").focus();
   });
 });

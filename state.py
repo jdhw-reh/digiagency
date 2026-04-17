@@ -227,6 +227,163 @@ async def list_accounts() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Agency teams
+# ---------------------------------------------------------------------------
+
+TEAM_TTL = 86400 * 400  # 400 days
+
+
+async def create_team(owner_email: str) -> str:
+    """Create a team record and reverse-lookup key. Returns team_id."""
+    team_id = str(uuid.uuid4())
+    record = {
+        "team_id": team_id,
+        "owner_email": owner_email,
+        "members": [],
+        "max_seats": 5,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+    await redis_client.setex(f"team:{team_id}", TEAM_TTL, json.dumps(record))
+    await redis_client.setex(f"team_owner:{owner_email.lower()}", TEAM_TTL, team_id)
+    return team_id
+
+
+async def get_team(team_id: str) -> dict | None:
+    raw = await redis_client.get(f"team:{team_id}")
+    return json.loads(raw) if raw else None
+
+
+async def get_team_by_owner(owner_email: str) -> dict | None:
+    team_id = await redis_client.get(f"team_owner:{owner_email.lower()}")
+    if not team_id:
+        return None
+    return await get_team(team_id)
+
+
+async def add_team_member(team_id: str, member_email: str) -> bool:
+    """Append member. Returns False if already at max_seats (owner counts as 1)."""
+    raw = await redis_client.get(f"team:{team_id}")
+    if not raw:
+        return False
+    team = json.loads(raw)
+    occupied = 1 + len(team["members"])
+    if occupied >= team["max_seats"]:
+        return False
+    team["members"].append({
+        "email": member_email.lower(),
+        "joined_at": datetime.utcnow().isoformat() + "Z",
+    })
+    await redis_client.setex(f"team:{team_id}", TEAM_TTL, json.dumps(team))
+    return True
+
+
+async def remove_team_member(team_id: str, member_email: str) -> None:
+    raw = await redis_client.get(f"team:{team_id}")
+    if not raw:
+        return
+    team = json.loads(raw)
+    team["members"] = [m for m in team["members"] if m["email"] != member_email.lower()]
+    await redis_client.setex(f"team:{team_id}", TEAM_TTL, json.dumps(team))
+
+
+async def get_member_count(team_id: str) -> int:
+    """Owner counts as 1 seat."""
+    raw = await redis_client.get(f"team:{team_id}")
+    if not raw:
+        return 0
+    team = json.loads(raw)
+    return 1 + len(team["members"])
+
+
+async def set_account_team(email: str, team_id: str, role: str) -> None:
+    """Update account record with team_id and team_role, preserving all other fields."""
+    account = await get_account(email)
+    if not account:
+        return
+    account["team_id"] = team_id
+    account["team_role"] = role
+    await save_account(email, account)
+
+
+async def get_account_team(email: str) -> tuple[str, str] | None:
+    """Return (team_id, team_role) or None if not on a team."""
+    account = await get_account(email)
+    if not account:
+        return None
+    team_id = account.get("team_id")
+    team_role = account.get("team_role")
+    if team_id and team_role:
+        return (team_id, team_role)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Pending join requests
+# ---------------------------------------------------------------------------
+
+JOIN_REQUEST_TTL = 72 * 3600  # 72 hours
+
+
+async def create_join_request(
+    workspace_code: str,
+    owner_email: str,
+    team_id: str,
+    requester_email: str,
+    requester_name: str,
+) -> str:
+    """Create a join request. Returns the request token."""
+    token = secrets.token_urlsafe(32)
+    email_action_token = secrets.token_urlsafe(16)
+    record = {
+        "token": token,
+        "workspace_code": workspace_code,
+        "owner_email": owner_email,
+        "team_id": team_id,
+        "requester_email": requester_email.lower(),
+        "requester_name": requester_name,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "status": "pending",
+        "email_action_token": email_action_token,
+    }
+    await redis_client.setex(f"join_request:{token}", JOIN_REQUEST_TTL, json.dumps(record))
+    await redis_client.sadd(f"pending_requests:{owner_email.lower()}", token)
+    return token
+
+
+async def get_join_request(token: str) -> dict | None:
+    raw = await redis_client.get(f"join_request:{token}")
+    return json.loads(raw) if raw else None
+
+
+async def get_pending_requests_for_owner(owner_email: str) -> list[dict]:
+    """Return all non-expired pending join requests for this owner."""
+    tokens = await redis_client.smembers(f"pending_requests:{owner_email.lower()}")
+    if not tokens:
+        return []
+    requests = []
+    for token in tokens:
+        req = await get_join_request(token)
+        if req and req.get("status") == "pending":
+            requests.append(req)
+        elif not req:
+            await redis_client.srem(f"pending_requests:{owner_email.lower()}", token)
+    return requests
+
+
+async def resolve_join_request(token: str, status: str) -> None:
+    """Update status to 'approved' or 'denied'; remove from owner's pending set."""
+    raw = await redis_client.get(f"join_request:{token}")
+    if not raw:
+        return
+    record = json.loads(raw)
+    record["status"] = status
+    await redis_client.setex(f"join_request:{token}", JOIN_REQUEST_TTL, json.dumps(record))
+    owner_email = record.get("owner_email", "")
+    if owner_email:
+        await redis_client.srem(f"pending_requests:{owner_email.lower()}", token)
+
+
+# ---------------------------------------------------------------------------
 # Content history (per-user log of completed tool outputs)
 # ---------------------------------------------------------------------------
 

@@ -38,11 +38,16 @@
     const response = await _origFetch(input, init);
 
     if (response.status === 401 || response.status === 402) {
-      // Clone so the original caller can still read the body if needed
       const clone = response.clone();
       clone.json().then(data => {
         const msg = data?.error || "";
-        if (msg === "Not authenticated" || msg === "Session expired" || msg === "No active subscription") {
+        if (msg === "pending_approval") {
+          window.location.href = "/pending";
+        } else if (
+          msg === "Not authenticated" ||
+          msg === "Session expired" ||
+          msg === "No active subscription"
+        ) {
           window.location.href = "/login";
         }
       }).catch(() => {
