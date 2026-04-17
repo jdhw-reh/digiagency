@@ -21,7 +21,32 @@ from slowapi.util import get_remote_address
 
 load_dotenv()
 
+# Validate all prompt YAML files at startup — fail fast if any are missing or malformed.
+from utils.prompts import load_prompt as _load_prompt
+
+_AGENT_PATHS = [
+    "content/researcher",
+    "content/planner",
+    "content/writer",
+    "social/scout",
+    "social/strategist",
+    "social/copywriter",
+    "seo_audit/auditor",
+    "seo_audit/analyser",
+    "seo_audit/recommender",
+    "seo_audit/implementer",
+    "video/director",
+    "on_page_opt/analyser",
+    "on_page_opt/researcher",
+    "on_page_opt/copywriter",
+    "assistant/assistant",
+]
+
+for _path in _AGENT_PATHS:
+    _load_prompt(_path)  # raises FileNotFoundError or ValueError on bad files
+
 from rate_limits import AIRateLimit
+from utils.csrf import verify_csrf_token
 from routers.content_team import router as content_router
 from routers.social_team import router as social_router
 from routers.assistant import router as assistant_router
@@ -73,6 +98,7 @@ async def require_active_subscription(request: Request, call_next):
     # Always allow: login page, static assets, auth endpoints, admin endpoints, health check
     if (
         path == "/login"
+        or path == "/reset-password"
         or path == "/health"
         or path.startswith("/static/")
         or path.startswith("/api/auth/")
@@ -173,6 +199,11 @@ async def login_page():
     return FileResponse(str(static_dir / "login.html"))
 
 
+@app.get("/reset-password")
+async def reset_password_page():
+    return FileResponse(str(static_dir / "login.html"))
+
+
 # ---------------------------------------------------------------------------
 # Content history
 # ---------------------------------------------------------------------------
@@ -189,7 +220,7 @@ async def get_history_endpoint(request: Request):
 
 
 @app.delete("/api/history/{item_id}")
-async def delete_history_endpoint(item_id: str, request: Request):
+async def delete_history_endpoint(item_id: str, request: Request, _csrf: None = Depends(verify_csrf_token)):
     from state import get_token_email, delete_history_item
     token = request.cookies.get("agency_token")
     email = await get_token_email(token) if token else None
@@ -253,21 +284,77 @@ async def director_summary():
 
 
 # ---------------------------------------------------------------------------
+# Usage summary
+# ---------------------------------------------------------------------------
+
+@app.get("/api/usage")
+async def get_usage(request: Request):
+    from state import get_token_email, get_account, redis_client
+    from utils.usage import MONTHLY_CAPS, get_usage_key
+    from datetime import datetime
+
+    token = request.cookies.get("agency_token")
+    email = await get_token_email(token) if token else None
+    if not email:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    account = await get_account(email)
+    plan = (account or {}).get("plan", "pro")
+    if plan not in MONTHLY_CAPS:
+        plan = "pro"
+
+    month = datetime.utcnow().strftime("%Y-%m")
+    tools = ["content", "social", "seo_audit", "video", "on_page_opt", "assistant"]
+
+    # Fetch all counters in one round-trip.
+    keys = [get_usage_key(email, t) for t in tools]
+    values = await redis_client.mget(keys)
+
+    caps = MONTHLY_CAPS[plan]
+    usage = {}
+    for tool, raw in zip(tools, values):
+        used = int(raw) if raw else 0
+        cap = caps.get(tool)
+        usage[tool] = {
+            "used": used,
+            "cap": cap,          # None for unlimited, 0 for locked
+            "locked": cap == 0,
+        }
+
+    return JSONResponse({"month": month, "plan": plan, "usage": usage})
+
+
+# ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
 
 _ai_deps = [Depends(_ai_rate_limit)]
+_csrf_dep = [Depends(verify_csrf_token)]
+_ai_csrf_deps = _ai_deps + _csrf_dep
 
+# Auth router: login + register are public (no CSRF possible yet); logout has its
+# own per-route Depends(verify_csrf_token) added directly in routers/auth.py.
 app.include_router(auth_router,            prefix="/api/auth")
+
+# Admin router uses a separate agency_admin cookie (not agency_token), so the
+# CSRF dependency — which keys on agency_token — would reject all admin POSTs.
+# Admin routes are protected by their own password-based session check instead.
 app.include_router(admin_router)
-app.include_router(content_router,         prefix="/api/content",     dependencies=_ai_deps)
-app.include_router(social_router,          prefix="/api/social",      dependencies=_ai_deps)
-app.include_router(assistant_router,       prefix="/api/assistant",   dependencies=_ai_deps)
-app.include_router(seo_audit_router,       prefix="/api/seo-audit",   dependencies=_ai_deps)
-app.include_router(video_router,           prefix="/api/video",       dependencies=_ai_deps)
-app.include_router(on_page_opt_router,     prefix="/api/on-page-opt", dependencies=_ai_deps)
-app.include_router(agency_router,          prefix="/api/agency")
-app.include_router(setup_router,           prefix="/api/setup")
-app.include_router(checkout_router,        prefix="/api/checkout")
+
+# All user-facing AI team routers: CSRF + AI rate-limit on every request.
+app.include_router(content_router,         prefix="/api/content",     dependencies=_ai_csrf_deps)
+app.include_router(social_router,          prefix="/api/social",      dependencies=_ai_csrf_deps)
+app.include_router(assistant_router,       prefix="/api/assistant",   dependencies=_ai_csrf_deps)
+app.include_router(seo_audit_router,       prefix="/api/seo-audit",   dependencies=_ai_csrf_deps)
+app.include_router(video_router,           prefix="/api/video",       dependencies=_ai_csrf_deps)
+app.include_router(on_page_opt_router,     prefix="/api/on-page-opt", dependencies=_ai_csrf_deps)
+
+# Non-AI routers: CSRF only (the dependency skips GET/HEAD/OPTIONS automatically).
+app.include_router(agency_router,          prefix="/api/agency",      dependencies=_csrf_dep)
+app.include_router(setup_router,           prefix="/api/setup",       dependencies=_csrf_dep)
+app.include_router(checkout_router,        prefix="/api/checkout",    dependencies=_csrf_dep)
+app.include_router(support_router,         prefix="/api/support",     dependencies=_csrf_dep)
+
+# Stripe webhook: excluded — Stripe authenticates via HMAC signature, not cookies,
+# and adding our custom header would break Stripe's outbound calls.
 app.include_router(stripe_webhook_router,  prefix="/api/stripe")
-app.include_router(support_router,         prefix="/api/support")
