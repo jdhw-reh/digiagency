@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 import time
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi import Depends
 from slowapi import Limiter
@@ -213,6 +213,12 @@ async def robots_txt():
     return FileResponse("robots.txt", media_type="text/plain; charset=utf-8")
 
 
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    content = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://www.digi-agency.co.uk/</loc>\n  </url>\n</urlset>'
+    return Response(content=content, media_type="application/xml")
+
+
 @app.get("/")
 async def root(request: Request):
     from state import get_token_email, get_account
@@ -279,13 +285,19 @@ async def delete_history_endpoint(item_id: str, request: Request, _csrf: None = 
 # ---------------------------------------------------------------------------
 
 @app.get("/api/director/summary")
-async def director_summary():
-    from state import redis_client, get_activity_log
+async def director_summary(request: Request):
+    from state import redis_client, get_token_email, get_user_activity
 
-    # Scan all team session keys and aggregate counts
+    token = request.cookies.get("agency_token")
+    email = await get_token_email(token) if token else None
+
+    # Scan session keys and aggregate counts for this user only
     keys = [k async for k in redis_client.scan_iter("session:*")]
     raw_values = await redis_client.mget(keys) if keys else []
-    sessions = [json.loads(v) for v in raw_values if v]
+    sessions = [
+        json.loads(v) for v in raw_values
+        if v and json.loads(v).get("email") == email
+    ]
 
     content_saved = sum(
         len(s.get("saved_articles", []))
@@ -313,7 +325,7 @@ async def director_summary():
         if s.get("team") == "on_page_opt" and s.get("stage") == "done"
     )
 
-    activity = await get_activity_log(limit=10)
+    activity = await get_user_activity(email, limit=10) if email else []
 
     return JSONResponse({
         "content_saved": content_saved,
