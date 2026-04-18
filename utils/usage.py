@@ -110,6 +110,8 @@ class ToolAccess:
                     owner_account = await get_account(team["owner_email"])
                     if owner_account and owner_account.get("subscription_status") == "active":
                         plan = owner_account.get("plan", "starter") or "starter"
+                    else:
+                        plan = "starter"
 
         if plan not in MONTHLY_CAPS:
             plan = "pro"
@@ -121,7 +123,8 @@ class ToolAccess:
                 status_code=403,
                 detail={
                     "error": "tool_locked",
-                    "message": "The Video Director is available on Pro and Agency plans.",
+                    "tool": self.tool,
+                    "message": f"The {self.tool.replace('_', ' ').title()} is only available on Pro and Agency plans.",
                     "upgrade_required": True,
                 },
             )

@@ -101,6 +101,13 @@
 })();
 
 async function doSignOut() {
-  await fetch("/api/auth/logout", { method: "POST" });
-  window.location.href = "/login";
+  try {
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (response.ok) {
+      window.location.replace("/login");
+    }
+  } catch (e) {
+    console.error("Logout failed:", e);
+    window.location.replace("/login");
+  }
 }

@@ -6,7 +6,9 @@
 
 const VIEWS = ["home", "content", "social", "assistant", "seo-audit", "video", "on-page-opt", "history"];
 
-function navigate(view) {
+function navigate(view, replace = false) {
+  if (window.clearLimitBanners) window.clearLimitBanners();
+
   const targetView = VIEWS.includes(view) ? view : "home";
 
   VIEWS.forEach((v) => {
@@ -29,7 +31,8 @@ function navigate(view) {
   if (typeof mountFn === "function") mountFn();
 
   window._currentView = targetView;
-  history.replaceState({ view: targetView }, "", "/app");
+  const stateMethod = replace ? "replaceState" : "pushState";
+  history[stateMethod]({ view: targetView }, "", "/app");
 }
 
 // Public API
@@ -48,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Read any existing hash on first load (e.g. old bookmarks), then clean the URL
   const hash = location.hash.replace(/^#\/?/, "").toLowerCase();
-  navigate(VIEWS.includes(hash) ? hash : "home");
+  navigate(VIEWS.includes(hash) ? hash : "home", true);
 });
 
 // ---------------------------------------------------------------------------

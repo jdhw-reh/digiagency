@@ -232,7 +232,9 @@ async def root(request: Request):
             account = await get_account(email)
             if account and account.get("subscription_status") == "active":
                 return RedirectResponse("/app")
-    return FileResponse(str(static_dir / "landing.html"))
+    response = FileResponse(str(static_dir / "landing.html"))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 @app.get("/app")

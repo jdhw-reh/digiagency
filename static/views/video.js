@@ -437,9 +437,8 @@ function viewDidMount_video() {
     }
   } catch { /* fall through to blank state */ }
 
-  initVideoSession().then(() => {
-    if (window.applyVideoLockedState) window.applyVideoLockedState();
-  });
+  initVideoSession();
+  if (window.applyVideoLockedState) window.applyVideoLockedState();
 }
 
 function viewWillUnmount_video() {
