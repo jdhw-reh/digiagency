@@ -150,7 +150,7 @@ async def login(payload: AuthPayload, response: Response):
     }
 
 
-@router.post("/logout", dependencies=[Depends(verify_csrf_token)])
+@router.post("/logout")
 async def logout(response: Response, agency_token: str | None = Cookie(default=None)):
     if agency_token:
         await delete_auth_token(agency_token)

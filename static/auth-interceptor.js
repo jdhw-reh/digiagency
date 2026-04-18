@@ -102,12 +102,9 @@
 
 async function doSignOut() {
   try {
-    const response = await fetch("/api/auth/logout", { method: "POST" });
-    if (response.ok) {
-      window.location.replace("/login");
-    }
+    await fetch("/api/auth/logout", { method: "POST" });
   } catch (e) {
     console.error("Logout failed:", e);
-    window.location.replace("/login");
   }
+  window.location.replace("/login");
 }
