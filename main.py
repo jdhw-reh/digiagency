@@ -203,6 +203,16 @@ async def health():
     return JSONResponse({"ok": True})
 
 
+@app.get("/llms.txt", include_in_schema=False)
+async def llms_txt():
+    return FileResponse("llms.txt", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return FileResponse("robots.txt", media_type="text/plain; charset=utf-8")
+
+
 @app.get("/")
 async def root(request: Request):
     from state import get_token_email, get_account

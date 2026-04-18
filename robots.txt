@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# LLM crawlers
+Allow: /llms.txt
+Sitemap: https://www.digi-agency.co.uk/sitemap.xml

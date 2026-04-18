@@ -1,0 +1,55 @@
+# Digi Agency
+
+> AI-powered digital marketing tools for small business marketing teams and freelancers.
+> Six specialist AI agents covering content creation, SEO, social media, video,
+> on-page optimisation, and a general marketing assistant.
+
+## What is Digi Agency?
+
+Digi Agency is a SaaS platform built like a virtual marketing agency — each tool is
+powered by a specialist AI agent. The name reflects the product experience: instead of
+hiring an agency, you get an AI-powered team of specialists built into one platform.
+
+Built on Google Gemini 2.5 Flash with real-time Google Search grounding, each agent
+delivers structured, multi-step workflows rather than a blank prompt box.
+
+## Tools
+
+- **Content Team**: Research audience and search demand, generate content briefs, write
+  full SEO-optimised blog articles (800-1200 words) in a practitioner voice
+- **Social Team**: Analyse social profiles, identify content opportunities, build
+  30-day social media calendars with platform-native post copy (LinkedIn, X, Instagram)
+- **SEO Audit**: Technical crawl of any URL, competitive gap analysis using live search
+  data, prioritised action plan, and implementation of copy fixes
+- **Video Director**: Shot-by-shot video production breakdowns with AI generation prompts
+  compatible with tools like Runway Gen-4
+- **On-Page Optimiser**: Analyse existing page copy against SEO best practices, research
+  competitor pages, and rewrite copy with embedded optimisations
+- **AI Assistant**: Multi-turn marketing assistant for drafting emails, summarising
+  documents, building briefs, and answering marketing strategy questions
+
+## Integrations
+
+- **Notion**: All outputs save directly to the user's connected Notion workspace.
+  Databases are auto-provisioned on first setup.
+- **Google Search**: Research-based agents use real-time Google Search grounding for
+  accurate, current recommendations rather than relying solely on training data.
+
+## Pricing
+
+- **Starter** — £29/month: Limited monthly outputs per tool. All tools except Video Director.
+- **Pro** — £49/month: Unlimited usage across all six tools. Single seat.
+- **Agency** — £149/month: Unlimited usage, 5 team seats with join-request management
+  and a shared workspace. Designed for small teams.
+
+## Who It's For
+
+Small businesses with an in-house marketing team that doesn't have the budget to hire an
+external agency. Freelance digital marketers looking to scale their output and streamline
+client work. Anyone who wants specialist AI marketing tools without learning six different
+platforms.
+
+## Links
+
+- Homepage: https://www.digi-agency.co.uk
+- Sign up / Pricing: https://www.digi-agency.co.uk/login
