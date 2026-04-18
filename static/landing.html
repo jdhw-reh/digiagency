@@ -420,6 +420,16 @@ planning and more. Plans from £29/month.">
       flex-shrink: 0;
     }
 
+    .pricing-features li.unavailable {
+      color: #555;
+      text-decoration: line-through;
+    }
+
+    .pricing-features li.unavailable::before {
+      content: '✗';
+      color: #555;
+    }
+
     .btn-cta {
       display: block;
       width: 100%;
@@ -1282,7 +1292,7 @@ planning and more. Plans from £29/month.">
             <li>Social Team</li>
             <li>SEO Audit</li>
             <li>Assistant</li>
-            <li>Video Director</li>
+            <li class="unavailable">Video Director</li>
             <li>On-Page Optimiser</li>
             <li>Limited monthly usage per tool</li>
           </ul>
