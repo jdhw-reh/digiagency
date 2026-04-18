@@ -81,10 +81,13 @@ function renderMembersList(members) {
         <span style="font-size:14px;color:#1C1B18;">${escHtml(m.email)}</span>
         ${joined ? `<span style="font-size:12px;color:#898780;margin-left:8px;">Joined ${escHtml(joined)}</span>` : ""}
       </div>
-      <button class="btn-ghost" style="padding:4px 10px;font-size:12px;color:#dc2626;border-color:#fca5a5;"
-              onclick="confirmRemoveMember('${escAttr(m.email)}')">Remove</button>
+      <button class="btn-ghost" data-email="${escAttr(m.email)}" data-action="remove-member"
+              style="padding:4px 10px;font-size:12px;color:#dc2626;border-color:#fca5a5;">Remove</button>
     </div>`;
   }).join("");
+  container.querySelectorAll("[data-action='remove-member']").forEach(btn => {
+    btn.addEventListener("click", () => confirmRemoveMember(btn.dataset.email));
+  });
 }
 
 function renderPendingRequests(requests) {
@@ -107,13 +110,19 @@ function renderPendingRequests(requests) {
         ${date ? `<span style="font-size:11px;color:#B0AFA9;margin-left:6px;">${escHtml(date)}</span>` : ""}
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-ghost" style="padding:4px 12px;font-size:12px;background:#dcfce7;border-color:#86efac;color:#166534;"
-                onclick="approveRequest('${escAttr(r.token)}')">Approve</button>
-        <button class="btn-ghost" style="padding:4px 12px;font-size:12px;color:#dc2626;border-color:#fca5a5;"
-                onclick="denyRequest('${escAttr(r.token)}')">Deny</button>
+        <button class="btn-ghost" data-token="${escAttr(r.token)}" data-action="approve-request"
+                style="padding:4px 12px;font-size:12px;background:#dcfce7;border-color:#86efac;color:#166534;">Approve</button>
+        <button class="btn-ghost" data-token="${escAttr(r.token)}" data-action="deny-request"
+                style="padding:4px 12px;font-size:12px;color:#dc2626;border-color:#fca5a5;">Deny</button>
       </div>
     </div>`;
   }).join("");
+  list.querySelectorAll("[data-action='approve-request']").forEach(btn => {
+    btn.addEventListener("click", () => approveRequest(btn.dataset.token));
+  });
+  list.querySelectorAll("[data-action='deny-request']").forEach(btn => {
+    btn.addEventListener("click", () => denyRequest(btn.dataset.token));
+  });
 }
 
 function renderMemberView() {
