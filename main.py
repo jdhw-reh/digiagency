@@ -102,6 +102,9 @@ async def require_active_subscription(request: Request, call_next):
         or path == "/reset-password"
         or path == "/pending"
         or path == "/health"
+        or path == "/robots.txt"
+        or path == "/sitemap.xml"
+        or path == "/llms.txt"
         or path.startswith("/static/")
         or path.startswith("/api/auth/")
         or path.startswith("/admin")
