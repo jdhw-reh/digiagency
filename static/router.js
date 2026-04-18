@@ -1,58 +1,54 @@
 "use strict";
 
 // ---------------------------------------------------------------------------
-// Hash-based SPA router
-// Navigates between #/home, #/content, #/social, #/assistant
+// SPA router — keeps URL clean at /app (no hash fragments)
 // ---------------------------------------------------------------------------
 
 const VIEWS = ["home", "content", "social", "assistant", "seo-audit", "video", "on-page-opt", "history"];
 
-function navigate(hash) {
-  const raw = hash.replace(/^#\/?/, "").toLowerCase();
-  const view = VIEWS.includes(raw) ? raw : "home";
+function navigate(view) {
+  const targetView = VIEWS.includes(view) ? view : "home";
 
-  // Fade all views out, fade target view in
   VIEWS.forEach((v) => {
     const el = document.getElementById(`view-${v}`);
     if (!el) return;
-    if (v === view) {
-      el.classList.add("view--visible");
-    } else {
-      el.classList.remove("view--visible");
-    }
+    el.classList.toggle("view--visible", v === targetView);
   });
 
-  // Update active sidebar link
   document.querySelectorAll(".nav-link[data-view]").forEach((link) => {
-    link.classList.toggle("nav-link--active", link.dataset.view === view);
+    link.classList.toggle("nav-link--active", link.dataset.view === targetView);
   });
 
-  // Call previous view's unmount hook if navigating away
   const prev = window._currentView;
-  if (prev && prev !== view) {
+  if (prev && prev !== targetView) {
     const unmountFn = window[`viewWillUnmount_${prev}`];
     if (typeof unmountFn === "function") unmountFn();
   }
 
-  // Call view's mount hook
-  const mountFn = window[`viewDidMount_${view}`];
+  const mountFn = window[`viewDidMount_${targetView}`];
   if (typeof mountFn === "function") mountFn();
 
-  window._currentView = view;
+  window._currentView = targetView;
+  history.replaceState({ view: targetView }, "", "/app");
 }
 
 // Public API
-window.navigateTo = (view) => {
-  location.hash = `#/${view}`;
-};
+window.navigateTo = (view) => navigate(view);
 
-window.addEventListener("hashchange", () => navigate(location.hash));
+window.addEventListener("popstate", (e) => navigate(e.state?.view || "home"));
 
 document.addEventListener("DOMContentLoaded", () => {
-  if (!location.hash || location.hash === "#" || location.hash === "#/") {
-    history.replaceState(null, "", "#/home");
-  }
-  navigate(location.hash);
+  // Intercept nav link clicks so they don't trigger hash changes
+  document.querySelectorAll(".nav-link[data-view]").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate(link.dataset.view);
+    });
+  });
+
+  // Read any existing hash on first load (e.g. old bookmarks), then clean the URL
+  const hash = location.hash.replace(/^#\/?/, "").toLowerCase();
+  navigate(VIEWS.includes(hash) ? hash : "home");
 });
 
 // ---------------------------------------------------------------------------

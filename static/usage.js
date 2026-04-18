@@ -42,7 +42,7 @@ function renderUsageBar(tool, toolUsage) {
     return `<div class="usage-bar-locked">
       <span class="usage-lock-icon">🔒</span>
       <span>Upgrade to Pro to unlock this tool</span>
-      <a href="#/home" class="usage-upgrade-link" onclick="window.navigateTo('home');return false;">Upgrade →</a>
+      <a href="/app" class="usage-upgrade-link" onclick="window.navigateTo('home');return false;">Upgrade →</a>
     </div>`;
   }
 
@@ -64,7 +64,7 @@ function renderUsageBar(tool, toolUsage) {
     <div class="usage-bar-sub">Resets ${resetStr}`;
 
   if (atCap) {
-    html += ` &mdash; <a href="#/home" class="usage-upgrade-link" onclick="window.navigateTo('home');return false;">Upgrade to Pro for unlimited access &rarr;</a>`;
+    html += ` &mdash; <a href="/app" class="usage-upgrade-link" onclick="window.navigateTo('home');return false;">Upgrade to Pro for unlimited access &rarr;</a>`;
   }
   html += `</div></div>`;
   return html;
@@ -193,7 +193,7 @@ function showLimitBanner(tool, limit, used) {
   banner.innerHTML  = `
     <span><strong>${toolLabel} limit reached</strong> — you've used all ${limit} outputs for ${monthName}.
     Your limit resets on ${resetStr}.</span>
-    <a href="#/home" class="limit-banner-upgrade"
+    <a href="/app" class="limit-banner-upgrade"
        onclick="window.navigateTo('home');return false;">Upgrade to Pro for unlimited access &rarr;</a>
   `;
 
@@ -247,7 +247,7 @@ function showToolLockedModal(toolName) {
       <p class="modal-body">The ${toolName || "Video Director"} is available on Pro and Agency plans.
          Upgrade your plan to access this tool.</p>
       <div class="modal-actions">
-        <a href="#/home" class="btn-primary"
+        <a href="/app" class="btn-primary"
            onclick="window.navigateTo('home');document.getElementById('tool-locked-modal')?.remove();return false;">
           View plans &rarr;
         </a>
